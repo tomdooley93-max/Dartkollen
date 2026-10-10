@@ -1,5 +1,5 @@
 // Bump VERSION on every release so installed apps pick up the update.
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const CACHE = "dartkollen-" + VERSION;
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 

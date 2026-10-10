@@ -71,7 +71,17 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
 .slot.sum small{font-family:var(--f-body);font-size:11px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}
 .msg{min-height:24px;font-weight:600}
 .msg.bust{color:var(--red)} .msg.win{color:var(--warn)} .msg.co{color:var(--mut);font-weight:500}
-.msg.co b{color:var(--chalk);font-family:var(--f-num);font-size:18px;letter-spacing:.03em}
+.msg.co{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.chip{font-family:var(--f-num);font-weight:700;font-size:20px;letter-spacing:.03em;color:var(--chalk);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 10px}
+.chip.d{border-color:var(--red)}
+.chip.nx{background:var(--chalk);color:var(--bg);border-color:var(--chalk)}
+.pl .co{display:flex;gap:4px;margin-top:8px;font-family:var(--f-num);font-weight:600;font-size:15px;letter-spacing:.03em}
+.pl .co span{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--chalk)}
+.pl .co.none{color:var(--mut);font-size:13px;font-weight:500}
+.flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);z-index:20;pointer-events:none;opacity:0;font-family:var(--f-num);font-weight:700;font-size:clamp(44px,16vw,96px);max-width:calc(100vw - 32px);box-sizing:border-box;line-height:1;color:var(--chalk);background:rgba(17,23,20,.88);border:2px solid var(--line);border-radius:18px;padding:14px clamp(14px,4vw,34px);white-space:nowrap}
+.flash.big{color:var(--warn);border-color:var(--warn)}
+.flash.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+@media (prefers-reduced-motion:no-preference){.flash{transition:opacity .25s,transform .25s}}
 .log{margin-top:14px;font-size:13px;color:var(--mut);max-height:150px;overflow:auto;font-variant-numeric:tabular-nums}
 .log div{padding:3px 0;border-top:1px solid var(--line)}
 
@@ -116,6 +126,7 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
 @media (prefers-reduced-motion:no-preference){.pl,.slot{transition:border-color .2s,box-shadow .2s}}
 </style>
 
+<div class="flash" id="flash" aria-live="polite"></div>
 <div class="upd" id="upd" hidden>
   <span>En ny version av Dartkollen finns.</span>
   <button class="pri" id="btnUpd">Uppdatera</button>
@@ -124,9 +135,14 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
   <header>
     <div>
       <h1>Dart<span>kollen</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.2.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.3.0</span></div>
     </div>
     <div class="row">
+      <select id="selVoice" aria-label="Uppropare">
+        <option value="en">Uppropare: engelska</option>
+        <option value="sv">Uppropare: svenska</option>
+        <option value="off">Uppropare: av</option>
+      </select>
       <button id="btnSettings">Nytt spel</button>
     </div>
   </header>
@@ -290,9 +306,16 @@ for(let n=20;n>=1;n--)DBL.push(dart(2,n));
 DBL.push(dart(2,25));
 const PREF=[40,32,16,24,36,20,8,12,28,4,50,38,34,30,26,22,18,14,10,6,2];
 DBL.sort((a,b)=>{const ia=PREF.indexOf(a.v),ib=PREF.indexOf(b.v);return (ia<0?99:ia)-(ib<0?99:ib);});
+// Standard professional double-out routes (bogey numbers 169,168,166,165,163,162,159 have none)
+const CO_TXT="170:T20 T20 Bull|167:T20 T19 Bull|164:T20 T18 Bull|161:T20 T17 Bull|160:T20 T20 D20|158:T20 T20 D19|157:T20 T19 D20|156:T20 T20 D18|155:T20 T19 D19|154:T20 T18 D20|153:T20 T19 D18|152:T20 T20 D16|151:T20 T17 D20|150:T20 T18 D18|149:T20 T19 D16|148:T20 T20 D14|147:T20 T17 D18|146:T20 T18 D16|145:T20 T15 D20|144:T20 T20 D12|143:T20 T17 D16|142:T20 T14 D20|141:T20 T19 D12|140:T20 T20 D10|139:T19 T14 D20|138:T20 T18 D12|137:T20 T19 D10|136:T20 T20 D8|135:T20 T17 D12|134:T20 T14 D16|133:T20 T19 D8|132:T20 T16 D12|131:T20 T13 D16|130:T20 T18 D8|129:T19 T16 D12|128:T18 T14 D16|127:T20 T17 D8|126:T19 T19 D6|125:25 T20 D20|124:T20 T16 D8|123:T19 T16 D9|122:T18 T20 D4|121:T20 T11 D14|120:T20 20 D20|119:T19 T12 D13|118:T20 18 D20|117:T20 17 D20|116:T20 16 D20|115:T20 15 D20|114:T20 14 D20|113:T20 13 D20|112:T20 12 D20|111:T20 11 D20|110:T20 10 D20|109:T20 9 D20|108:T20 16 D16|107:T19 10 D20|106:T20 14 D16|105:T20 13 D16|104:T18 18 D16|103:T19 6 D20|102:T20 10 D16|101:T17 10 D20|100:T20 D20|99:T19 10 D16|98:T20 D19|97:T19 D20|96:T20 D18|95:T19 D19|94:T18 D20|93:T19 D18|92:T20 D16|91:T17 D20|90:T20 D15|89:T19 D16|88:T16 D20|87:T17 D18|86:T18 D16|85:T15 D20|84:T20 D12|83:T17 D16|82:Bull D16|81:T19 D12|80:T20 D10|79:T19 D11|78:T18 D12|77:T19 D10|76:T20 D8|75:T17 D12|74:T14 D16|73:T19 D8|72:T16 D12|71:T13 D16|70:T18 D8|69:T19 D6|68:T20 D4|67:T17 D8|66:T10 D18|65:25 D20|64:T16 D8|63:T13 D12|62:T10 D16|61:T15 D8|60:20 D20|59:19 D20|58:18 D20|57:17 D20|56:16 D20|55:15 D20|54:14 D20|53:13 D20|52:12 D20|51:11 D20|50:10 D20|49:9 D20|48:16 D16|47:15 D16|46:6 D20|45:13 D16|44:12 D16|43:3 D20|42:10 D16|41:9 D16|39:7 D16|37:5 D16|35:3 D16|33:1 D16|31:15 D8|29:13 D8|27:11 D8|25:9 D8|23:7 D8|21:5 D8|19:3 D8|17:1 D8|15:7 D4|13:5 D4|11:3 D4|9:1 D4|7:3 D2|5:1 D2|3:1 D1";
+const CO={};
+function parseDart(l){if(l==="Bull")return dart(2,25);if(l==="25")return dart(1,25);const m=l[0]==="T"?3:l[0]==="D"?2:1;return dart(m,+(m>1?l.slice(1):l));}
+CO_TXT.split("|").forEach(e=>{const [k,v]=e.split(":");CO[k]=v.split(" ").map(parseDart);});
+for(let n=2;n<=40;n+=2)CO[n]=[dart(2,n/2)];
 function checkout(s,left,dbl){
   if(left<1||s<1||s>180)return null;
   if(dbl&&(s>170||s<2))return null;
+  if(dbl&&CO[s]&&CO[s].length<=left)return CO[s];
   const fin=dbl?DBL:ALL;
   for(const f of fin)if(f.v===s)return [f];
   if(left<2)return null;
@@ -330,7 +353,7 @@ function addDart(d,pos,fromCam){
     if(rest===0){G.winner=G.cur;t.done=true;p.legs++;}
     else if(t.darts.length===3)t.done=true;
   }
-  if(t.done)logTurn();
+  if(t.done){logTurn();caller.turnDone(t,p);}
   save();render();
   if(!fromCam)cam.afterManual();
 }
@@ -348,7 +371,7 @@ function nextPlayer(){
   if(!t.done){p.darts+=3-t.darts.length;if(t.darts.length)logTurn();}
   G.cur=(G.cur+1)%G.players.length;
   G.turn=newTurn(G.players[G.cur].score);
-  save();render();cam.onNewTurn();
+  save();render();cam.onNewTurn();caller.turnStart();
 }
 function newLeg(){
   snap();
@@ -356,7 +379,7 @@ function newLeg(){
   G.legStarter=(G.legStarter+1)%G.players.length;
   G.cur=G.legStarter;G.winner=null;
   G.turn=newTurn(G.start);
-  save();render();cam.onNewTurn();
+  save();render();cam.onNewTurn();caller.gameOn();
 }
 function doUndo(){if(!undo.length)return;G=JSON.parse(undo.pop());save();render();}
 
@@ -405,6 +428,67 @@ function saveEdit(){
   save();render();closeEdit();
 }
 
+function coLine(p,i){
+  if(G.winner!==null||!G.dbl)return "";
+  if(i===G.cur&&G.turn.done)return "";
+  const left=i===G.cur?3-G.turn.darts.length:3;
+  const co=checkout(p.score,left,true);
+  if(!co)return p.score<=170&&p.score>1?'<div class="co none">Ingen utgång</div>':"";
+  return '<div class="co">'+co.map(d=>'<span>'+d.label+'</span>').join("")+'</div>';
+}
+
+/* ---------- Caller (voice) + score flash ---------- */
+const caller=(function(){
+  const ss=window.speechSynthesis;
+  let lang=store.get("dk_voice")||"en";
+  const ONES=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+  const TENS=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+  function en(n){if(n<20)return ONES[n];if(n<100)return TENS[Math.floor(n/10)]+(n%10?"-"+ONES[n%10]:"");return ONES[Math.floor(n/100)]+" hundred"+(n%100?" and "+en(n%100):"");}
+  function voice(){
+    if(!ss)return null;const vs=ss.getVoices(),want=lang==="sv"?"sv":"en";
+    return vs.find(v=>v.lang.replace("_","-")===(want==="sv"?"sv-SE":"en-GB"))||vs.find(v=>v.lang.toLowerCase().startsWith(want))||null;
+  }
+  function say(text,opt){
+    if(!ss||lang==="off")return;
+    const u=new SpeechSynthesisUtterance(text),v=voice();
+    if(v){u.voice=v;u.lang=v.lang;}else u.lang=lang==="sv"?"sv-SE":"en-GB";
+    u.rate=(opt&&opt.rate)||0.92;u.pitch=(opt&&opt.pitch)||1;ss.speak(u);
+  }
+  // iOS only allows speech after a tap: prime it once
+  let primed=false;
+  document.addEventListener("pointerdown",()=>{if(primed||!ss)return;primed=true;const u=new SpeechSynthesisUtterance(" ");u.volume=0;ss.speak(u);},{passive:true});
+  function flash(text,big){
+    const f=$("flash");f.textContent=text;f.className="flash"+(big?" big":"");void f.offsetWidth;f.classList.add("on");
+    clearTimeout(flash.t);flash.t=setTimeout(()=>f.classList.remove("on"),1700);
+  }
+  return {
+    setLang(l){lang=l;store.set("dk_voice",l);},
+    get lang(){return lang;},
+    turnDone(t,p){
+      const sum=t.darts.reduce((s,d)=>s+d.v,0);
+      if(G.winner!==null){
+        flash("GAME SHOT",true);
+        say(lang==="sv"?"Game shot, och leget till "+p.name+"!":"Game shot, and the leg, "+p.name+"!",{rate:0.88,pitch:1.05});
+        return;
+      }
+      if(t.bust){flash("BUST");say(lang==="sv"?"Inga poäng":"No score");return;}
+      flash(String(sum),sum>=100);
+      if(sum===180)say(lang==="sv"?"Ett hundra... och åttio!":"One hundred... and eighty!",{rate:0.8,pitch:1.1});
+      else if(sum===0)say(lang==="sv"?"Inga poäng":"No score");
+      else say(lang==="sv"?String(sum):en(sum),{rate:sum>=100?0.88:0.95,pitch:sum>=100?1.05:1});
+    },
+    turnStart(){
+      const p=G.players[G.cur];
+      if(G.dbl&&p.score<=170&&checkout(p.score,3,true))
+        say(lang==="sv"?p.name+", du behöver "+p.score:p.name+", you require "+en(p.score));
+    },
+    gameOn(){
+      const p=G.players[G.cur];
+      say(lang==="sv"?p.name+" börjar. Game on!":p.name+" to throw first. Game on!");
+    }
+  };
+})();
+
 /* ---------- Render ---------- */
 function render(){
   $("gameMeta").textContent=G.start+" · "+(G.dbl?"dubbel ut":"rak ut");
@@ -415,7 +499,7 @@ function render(){
     const avg=p.darts?(p.pts/p.darts*3).toFixed(1):"–";
     el.title="Tryck för att ändra namn eller bild";
     el.innerHTML='<div class="nm"><span class="who"><span class="av"></span><span class="pn"></span></span>'+(i===G.cur&&G.winner===null?'<span class="dot" title="Kastar"></span>':"")+'</div>'+
-      '<div class="sc">'+p.score+'</div><div class="st"><span>Snitt '+avg+'</span><span>Pilar '+p.darts+'</span><span>Legs '+p.legs+'</span></div>';
+      '<div class="sc">'+p.score+'</div><div class="st"><span>Snitt '+avg+'</span><span>Pilar '+p.darts+'</span><span>Legs '+p.legs+'</span></div>'+coLine(p,i);
     el.querySelector(".pn").textContent=p.name;
     fillAv(el.querySelector(".av"),p.name,profiles()[p.name]);
     el.addEventListener("click",()=>openEdit(i));
@@ -436,7 +520,7 @@ function render(){
   else if(t.bust){m.className="msg bust";m.textContent="Bust – poängen återställs till "+t.start+".";}
   else{
     const co=checkout(p.score,3-t.darts.length,G.dbl);
-    if(co&&!t.done){m.className="msg co";m.innerHTML="Utgång: <b>"+co.map(d=>d.label).join("  ")+"</b>";}
+    if(co&&!t.done){m.className="msg co";m.innerHTML='<span class="label">'+(G.dbl?"Utgång ":"Kvar ")+p.score+'</span>'+co.map((d,k)=>'<span class="chip'+(k===0?" nx":"")+(d.m===2?" d":"")+'">'+d.label+'</span>').join("");}
   }
   $("btnNext").textContent=G.winner!==null?"Nästa leg":"Nästa spelare";
   $("btnUndo").disabled=!undo.length;
@@ -951,6 +1035,8 @@ function buildNames(){
 $("btnSettings").addEventListener("click",()=>{buildNames();$("settings").hidden=false;});
 $("btnCancel").addEventListener("click",()=>{$("settings").hidden=true;});
 $("selN").addEventListener("change",buildNames);
+$("selVoice").value=caller.lang;
+$("selVoice").addEventListener("change",e=>caller.setLang(e.target.value));
 $("editCam").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
 $("editPick").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
 $("editDel").addEventListener("click",()=>{editPhoto=null;fillAv($("editAv"),$("editName").value,null);});
@@ -961,7 +1047,7 @@ $("btnStart").addEventListener("click",()=>{
   const n=+$("selN").value,names=[];
   for(let i=0;i<n;i++)names.push(($("name"+i).value||"").trim()||"Spelare "+(i+1));
   newGame({start:+$("selStart").value,dbl:$("chkDbl").checked,names});
-  $("settings").hidden=true;cam.onNewTurn();
+  $("settings").hidden=true;cam.onNewTurn();caller.gameOn();
 });
 $("btnUndo").addEventListener("click",doUndo);
 $("btnNext").addEventListener("click",nextPlayer);
