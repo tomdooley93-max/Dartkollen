@@ -48,7 +48,16 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
 .pl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative}
 .pl.on{border-color:var(--grn);box-shadow:inset 0 0 0 1px var(--grn)}
 .pl.won{border-color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn)}
-.pl .nm{font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.pl .nm{font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pl{cursor:pointer}
+.pl:hover{border-color:var(--mut)}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{flex:none;width:36px;height:36px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--f-num);font-weight:700;font-size:16px;color:var(--chalk);overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av.lg{width:96px;height:96px;font-size:38px}
+.edit{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.edit .f{display:flex;flex-direction:column;gap:10px;flex:1;min-width:200px}
 .pl .sc{font-family:var(--f-num);font-weight:700;font-size:64px;line-height:1;margin:6px 0 4px;font-variant-numeric:tabular-nums;color:var(--chalk)}
 .pl .st{font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums;display:flex;gap:12px;flex-wrap:wrap}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--grn);display:inline-block}
@@ -115,12 +124,33 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
   <header>
     <div>
       <h1>Dart<span>kollen</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.1.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.2.0</span></div>
     </div>
     <div class="row">
       <button id="btnSettings">Nytt spel</button>
     </div>
   </header>
+
+  <section id="editPl" class="panel" hidden style="margin-bottom:16px">
+    <div class="label" style="margin-bottom:10px">Ändra spelare</div>
+    <div class="edit">
+      <div class="av lg" id="editAv"></div>
+      <div class="f">
+        <label class="label" style="display:flex;flex-direction:column;gap:4px">Namn
+          <input type="text" id="editName" maxlength="24" autocomplete="off">
+        </label>
+        <div class="row">
+          <span class="filebtn"><button tabindex="-1">Ta bild</button><input type="file" id="editCam" accept="image/*" capture="user" aria-label="Ta profilbild"></span>
+          <span class="filebtn"><button tabindex="-1">Välj bild</button><input type="file" id="editPick" accept="image/*" aria-label="Välj profilbild"></span>
+          <button id="editDel">Ta bort bild</button>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="pri" id="editSave">Spara</button>
+      <button id="editCancel">Avbryt</button>
+    </div>
+  </section>
 
   <section id="settings" class="panel" hidden>
     <div class="set">
@@ -330,6 +360,51 @@ function newLeg(){
 }
 function doUndo(){if(!undo.length)return;G=JSON.parse(undo.pop());save();render();}
 
+/* ---------- Player profiles ---------- */
+let PROF=null;
+function profiles(){return PROF||(PROF=store.get("dk_profiles")||{});}
+function saveProfile(name,photo){
+  const pr=profiles();
+  if(photo)pr[name]=photo;else delete pr[name];
+  // keep storage small: at most 30 saved faces
+  const keys=Object.keys(pr);while(keys.length>30)delete pr[keys.shift()];
+  store.set("dk_profiles",pr);
+}
+function initials(n){return (n||"?").trim().split(/\s+/).map(w=>w[0]||"").join("").slice(0,2).toUpperCase()||"?";}
+function fillAv(el,name,photo){
+  el.textContent="";
+  if(photo){const im=document.createElement("img");im.src=photo;im.alt="";el.appendChild(im);}
+  else el.textContent=initials(name);
+}
+let editIdx=-1,editPhoto=null;
+function openEdit(i){
+  editIdx=i;const p=G.players[i];editPhoto=profiles()[p.name]||null;
+  $("editName").value=p.name;fillAv($("editAv"),p.name,editPhoto);
+  $("settings").hidden=true;$("editPl").hidden=false;
+  $("editPl").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function closeEdit(){$("editPl").hidden=true;editIdx=-1;}
+function loadPhoto(file){
+  if(!file)return;
+  const img=new Image(),url=URL.createObjectURL(file);
+  img.onload=()=>{
+    // centre-crop to a square and shrink so it fits in local storage
+    const S=192,c=document.createElement("canvas");c.width=c.height=S;
+    const k=Math.min(img.naturalWidth,img.naturalHeight),sx=(img.naturalWidth-k)/2,sy=(img.naturalHeight-k)/2;
+    c.getContext("2d").drawImage(img,sx,sy,k,k,0,0,S,S);
+    editPhoto=c.toDataURL("image/jpeg",0.82);URL.revokeObjectURL(url);
+    fillAv($("editAv"),$("editName").value,editPhoto);
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);};
+  img.src=url;
+}
+function saveEdit(){
+  if(editIdx<0)return;
+  const p=G.players[editIdx],name=($("editName").value||"").trim()||p.name;
+  p.name=name;saveProfile(name,editPhoto);
+  save();render();closeEdit();
+}
+
 /* ---------- Render ---------- */
 function render(){
   $("gameMeta").textContent=G.start+" · "+(G.dbl?"dubbel ut":"rak ut");
@@ -338,9 +413,12 @@ function render(){
     const el=document.createElement("div");
     el.className="pl"+(i===G.cur&&G.winner===null?" on":"")+(G.winner===i?" won":"");
     const avg=p.darts?(p.pts/p.darts*3).toFixed(1):"–";
-    el.innerHTML='<div class="nm"><span></span>'+(i===G.cur&&G.winner===null?'<span class="dot" title="Kastar"></span>':"")+'</div>'+
+    el.title="Tryck för att ändra namn eller bild";
+    el.innerHTML='<div class="nm"><span class="who"><span class="av"></span><span class="pn"></span></span>'+(i===G.cur&&G.winner===null?'<span class="dot" title="Kastar"></span>':"")+'</div>'+
       '<div class="sc">'+p.score+'</div><div class="st"><span>Snitt '+avg+'</span><span>Pilar '+p.darts+'</span><span>Legs '+p.legs+'</span></div>';
-    el.querySelector(".nm span").textContent=p.name;
+    el.querySelector(".pn").textContent=p.name;
+    fillAv(el.querySelector(".av"),p.name,profiles()[p.name]);
+    el.addEventListener("click",()=>openEdit(i));
     pl.appendChild(el);
   });
   const t=G.turn,p=G.players[G.cur];
@@ -873,6 +951,12 @@ function buildNames(){
 $("btnSettings").addEventListener("click",()=>{buildNames();$("settings").hidden=false;});
 $("btnCancel").addEventListener("click",()=>{$("settings").hidden=true;});
 $("selN").addEventListener("change",buildNames);
+$("editCam").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
+$("editPick").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
+$("editDel").addEventListener("click",()=>{editPhoto=null;fillAv($("editAv"),$("editName").value,null);});
+$("editName").addEventListener("input",()=>{if(!editPhoto)fillAv($("editAv"),$("editName").value,null);});
+$("editSave").addEventListener("click",saveEdit);
+$("editCancel").addEventListener("click",closeEdit);
 $("btnStart").addEventListener("click",()=>{
   const n=+$("selN").value,names=[];
   for(let i=0;i<n;i++)names.push(($("name"+i).value||"").trim()||"Spelare "+(i+1));
