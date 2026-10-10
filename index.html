@@ -1,4 +1,14 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Dartkollen</title></head><body>
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111714">
+<meta name="description" content="Poängräknare för dart med kameraigenkänning och manuell inmatning.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dartkollen">
+</head><body>
 <title>Dartkollen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
@@ -92,14 +102,20 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
 /* Settings */
 #settings{margin-bottom:16px}
 .names{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+.upd{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:var(--panel2);border-bottom:1px solid var(--grn)}
+@media (display-mode:standalone){.wrap{padding-top:calc(16px + env(safe-area-inset-top,0px))}}
 @media (prefers-reduced-motion:no-preference){.pl,.slot{transition:border-color .2s,box-shadow .2s}}
 </style>
 
+<div class="upd" id="upd" hidden>
+  <span>En ny version av Dartkollen finns.</span>
+  <button class="pri" id="btnUpd">Uppdatera</button>
+</div>
 <div class="wrap">
   <header>
     <div>
       <h1>Dart<span>kollen</span></h1>
-      <div class="meta" id="gameMeta">501 · dubbel ut</div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.1.0</span></div>
     </div>
     <div class="row">
       <button id="btnSettings">Nytt spel</button>
@@ -895,6 +911,19 @@ const saved=store.get("dk_game");
 if(saved&&saved.players&&saved.turn){G=saved;render();}
 else newGame({start:501,dbl:true,names:["Spelare 1","Spelare 2"]});
 autoStart();
+
+/* ---------- Installed app: service worker + updates ---------- */
+if("serviceWorker" in navigator&&location.protocol==="https:"&&!/claude\.ai|claudeusercontent/.test(location.hostname)){
+  let reloading=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(reloading)return;reloading=true;location.reload();});
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    const offer=w=>{$("upd").hidden=false;$("btnUpd").onclick=()=>w.postMessage("skipWaiting");};
+    if(reg.waiting&&navigator.serviceWorker.controller)offer(reg.waiting);
+    reg.addEventListener("updatefound",()=>{const w=reg.installing;if(!w)return;
+      w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)offer(w);});});
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reg.update().catch(()=>{});});
+  }).catch(()=>{});
+}
 })();
 </script>
 </body></html>
