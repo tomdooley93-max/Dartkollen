@@ -1,6 +1,6 @@
 // Bump VERSION on every release so installed apps pick up the update.
-const VERSION = "1.4.0";
-const CACHE = "dartkollen-" + VERSION;
+const VERSION = "1.4.1";
+const CACHE = "trebleeye-" + VERSION;
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -8,7 +8,7 @@ self.addEventListener("install", e => {
 });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith("dartkollen-") && k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => /^(dartkollen|trebleeye)-/.test(k) && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener("message", e => { if (e.data === "skipWaiting") self.skipWaiting(); });

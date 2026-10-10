@@ -1,6 +1,6 @@
 {
-  "name": "Dartkollen",
-  "short_name": "Dartkollen",
+  "name": "TrebleEye",
+  "short_name": "TrebleEye",
   "description": "Poängräknare för dart med kameraigenkänning och manuell inmatning.",
   "lang": "sv",
   "start_url": "./",

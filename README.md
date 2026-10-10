@@ -1,4 +1,4 @@
-# Dartkollen
+# TrebleEye
 
 Poängräknare för dart (301/501/701) med kameraigenkänning och manuell inmatning.
 
