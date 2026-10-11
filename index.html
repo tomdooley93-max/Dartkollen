@@ -178,12 +178,10 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.1</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.2</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
-        <option value="en">Röst: telefonens engelska</option>
-        <option value="sv">Röst: telefonens svenska</option>
         <option value="off">Ljud av</option>
       </select>
       <button class="chipbtn" id="sessChip" hidden></button>
@@ -778,7 +776,8 @@ const fx=(function(){
 /* ---------- Caller ---------- */
 const caller=(function(){
   const ss=window.speechSynthesis;
-  let lang=store.get("dk_voice")||"pro";
+  // only our own recorded voices or silence; earlier phone-voice choices move to the recorded voices
+  let lang=store.get("dk_voice")==="off"?"off":"pro";
   const ONES=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
   const TENS=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
   function en(n){if(n<20)return ONES[n];if(n<100)return TENS[Math.floor(n/10)]+(n%10?"-"+ONES[n%10]:"");return ONES[Math.floor(n/100)]+" hundred"+(n%100?" and "+en(n%100):"");}
