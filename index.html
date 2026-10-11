@@ -174,7 +174,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.6.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.6.1</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -1556,7 +1556,7 @@ const packs={
 /* ---------- Voice generator (OpenAI text-to-speech, runs on this device with the user's key) ---------- */
 const voiceGen=(function(){
   const VOICES=["ash","onyx","echo","ballad","verse","fable","sage","alloy","coral","nova","shimmer"];
-  const BASE_STYLE="You are the MC at a packed professional darts arena. British accent, deep, confident and theatrical. Say exactly the words given and nothing else.";
+  const BASE_STYLE="Voice: a legendary British darts MC at a sold-out arena. Deep, gravelly, booming and theatrical, with a strong London accent. Delivery: slow and deliberate, stretch the vowels of the numbers and let the last word ring out, building drama like a boxing ring announcer. Never rush. The energy rises with the size of the score. Say exactly the words given and nothing else.";
   const ONES=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
   const TENS=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
   const en=n=>n<20?ONES[n]:n<100?TENS[Math.floor(n/10)]+(n%10?"-"+ONES[n%10]:""):ONES[Math.floor(n/100)]+" hundred"+(n%100?" and "+en(n%100):"");
