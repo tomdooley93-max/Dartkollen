@@ -119,6 +119,14 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
 .place li.warn::before{content:"!";color:var(--warn)}
 .placesum{font-size:13px;font-weight:600}
 .placesum.ok{color:#7fe0a0}.placesum.warn{color:var(--warn)}
+#modeBox{margin-top:12px;overflow-x:auto}
+.crt{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.crt th{font-size:13px;font-weight:600;color:var(--mut);padding:4px 8px;text-align:center;white-space:nowrap}
+.crt th.on{color:#7fe0a0}
+.crt td{text-align:center;padding:4px 8px;font-family:var(--f-num);font-size:24px;font-weight:700;color:var(--chalk);border-top:1px solid var(--line)}
+.crt td.n{color:var(--mut);font-size:18px;text-align:left}
+.crt tr.dead td{opacity:.35}
+html.tv .crt td{font-size:clamp(24px,3vw,52px)}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
 .stt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;margin-top:12px}
@@ -228,7 +236,7 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.3.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.4.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -354,20 +362,36 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
 
   <section id="settings" class="panel" hidden>
     <div class="set">
-      <label>Spel
+      <label>Spelläge
+        <select id="selMode">
+          <option value="x01" selected>X01 (301/501/701)</option>
+          <option value="cricket">Cricket</option>
+          <option value="atc">Around the Clock</option>
+          <option value="checkout">Träning: utgångar</option>
+          <option value="bobs27">Träning: Bob's 27</option>
+        </select>
+      </label>
+      <label class="opt-co" hidden>Utgångar
+        <select id="selRange"><option value="61-100" selected>61–100</option><option value="101-130">101–130</option><option value="131-170">131–170</option><option value="2-170">Blandat 2–170</option></select>
+      </label>
+      <label class="opt-co" hidden>Rundor
+        <select id="selRounds"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select>
+      </label>
+      <label class="opt-x01">Spel
         <select id="selStart"><option>301</option><option selected>501</option><option>701</option></select>
       </label>
       <label>Antal spelare
         <select id="selN"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
       </label>
-      <label>Legs
+      <label class="opt-x01">Legs
         <select id="selLegs"><option value="1">1 leg</option><option value="3">Bäst av 3</option><option value="5" selected>Bäst av 5</option><option value="7">Bäst av 7</option><option value="9">Bäst av 9</option><option value="11">Bäst av 11</option></select>
       </label>
-      <label>Sets
+      <label class="opt-x01">Sets
         <select id="selSets"><option value="0" selected>Inga sets</option><option value="3">Bäst av 3 sets</option><option value="5">Bäst av 5 sets</option><option value="7">Bäst av 7 sets</option></select>
       </label>
-      <label class="ck"><input type="checkbox" id="chkDbl" checked> Dubbel ut (avsluta på dubbel eller bull)</label>
+      <label class="ck opt-x01"><input type="checkbox" id="chkDbl" checked> Dubbel ut (avsluta på dubbel eller bull)</label>
     </div>
+    <p class="help" id="modeHelp"></p>
     <div class="names" id="names"></div>
     <div class="row" style="margin-top:12px">
       <button class="pri" id="btnStart">Starta spel</button>
@@ -388,6 +412,7 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
         </div>
         <div class="slots" id="slots"></div>
         <div class="msg" id="msg"></div>
+        <div id="modeBox" hidden></div>
         <div class="log" id="log"></div>
       </div>
       <div class="panel remote" id="remoteBox" hidden>
@@ -533,6 +558,7 @@ function newStats(){return {pts:0,darts:0,f9pts:0,f9darts:0,c180:0,c140:0,c100:0
 function newTurn(s,legDarts){return {darts:[],start:s,bust:false,done:false,legDarts:legDarts||0};}
 const firstTo=n=>Math.ceil((n||1)/2);
 function newGame(cfg){
+  if(cfg.mode&&cfg.mode!=="x01"){newModeGame(cfg);return;}
   const fmt={legs:cfg.fmt&&cfg.fmt.legs||1,sets:cfg.fmt&&cfg.fmt.sets||0};
   G={mode:"x01",id:Date.now().toString(36),date:new Date().toISOString(),start:cfg.start,dbl:cfg.dbl,fmt,
      legStarter:0,setStarter:0,cur:0,winner:null,matchWinner:null,setWon:false,log:[],
@@ -546,6 +572,7 @@ const onDouble=s=>s===50||(s>=2&&s<=40&&s%2===0);
 
 function addDart(d,pos,fromCam){
   if(sess.role==="client"){sess.send({a:"dart",d:{m:d.m,n:d.n},pos:pos||null});return;}
+  if(G&&G.mode!=="x01"){modeDart(d,pos);if(!fromCam)cam.afterManual();return;}
   if(!G||G.winner!==null)return;
   if(G.turn.done)nextPlayer();
   snap();
@@ -598,6 +625,7 @@ function logTurn(){
 function nextPlayer(){
   if(sess.role==="client"){sess.send({a:"next"});return;}
   if(!G)return;
+  if(G.mode!=="x01"){modeNext();return;}
   if(G.matchWinner!==null)return;
   if(G.winner!==null){newLeg();return;}
   snap();
@@ -626,6 +654,200 @@ function doUndo(){
   save();render();
 }
 
+/* ---------- Other game modes and training (Cricket, Around the Clock, checkout practice, Bob's 27) ---------- */
+const CR_NUMS=[20,19,18,17,16,15,25];
+const BOB_TARGETS=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25];
+const CO_RANGES={"61-100":[61,100],"101-130":[101,130],"131-170":[131,170],"2-170":[2,170]};
+function randomCheckout(range){
+  const [a,b]=CO_RANGES[range]||CO_RANGES["61-100"],pool=[];
+  for(let n=a;n<=b;n++)if(CO[n])pool.push(n);
+  return pool[Math.floor(Math.random()*pool.length)]||100;
+}
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const MODES={
+  cricket:{
+    label:"Cricket",
+    init(p){p.marks={};CR_NUMS.forEach(n=>p.marks[n]=0);p.score=0;p.mk=0;},
+    dart(p,d){
+      if(!CR_NUMS.includes(d.n)||!d.m)return;
+      const before=p.marks[d.n],close=Math.min(3-Math.min(before,3),d.m),extra=d.m-close;
+      p.marks[d.n]=before+close;p.mk+=d.m;
+      // marks beyond three score points while any opponent still has the number open
+      if(extra>0&&G.players.some(o=>o!==p&&o.marks[d.n]<3))p.score+=extra*d.n;
+    },
+    winner(){
+      const done=G.players.map(p=>CR_NUMS.every(n=>p.marks[n]>=3));
+      for(let i=0;i<G.players.length;i++)if(done[i]&&G.players.every(o=>o===G.players[i]||G.players[i].score>=o.score))return i;
+      return null;
+    },
+    big:p=>String(p.score),
+    sub:p=>"MPR "+(p.darts?(p.mk/p.darts*3).toFixed(2):"–")+" · "+CR_NUMS.filter(n=>p.marks[n]>=3).length+"/7 stängda",
+    msg:()=>"",
+    table(){
+      const sym=m=>m>=3?"Ⓧ":m===2?"X":m===1?"/":"";
+      let h='<table class="crt"><thead><tr><th></th>'+G.players.map((p,i)=>'<th class="'+(i===G.cur?"on":"")+'">'+esc(p.name)+'</th>').join("")+'</tr></thead><tbody>';
+      CR_NUMS.forEach(n=>{
+        const closedAll=G.players.every(p=>p.marks[n]>=3);
+        h+='<tr class="'+(closedAll?"dead":"")+'"><td class="n">'+(n===25?"Bull":n)+'</td>'+G.players.map(p=>'<td>'+sym(p.marks[n])+'</td>').join("")+'</tr>';
+      });
+      return h+"</tbody></table>";
+    },
+    stat:p=>({name:p.name,score:p.score,mpr:p.darts?p.mk/p.darts*3:0,darts:p.darts}),
+    statCols:[["Spelare",r=>r.name],["Poäng",r=>String(r.score),"big"],["MPR",r=>r.mpr.toFixed(2)],["Pilar",r=>String(r.darts)]],
+    summary:r=>r.score+" p, MPR "+r.mpr.toFixed(2)
+  },
+  atc:{
+    label:"Around the Clock",
+    init(p){p.target=1;p.done=false;},
+    dart(p,d){
+      if(p.done||!d.m)return;
+      if(d.n===p.target||(p.target===25&&d.n===25)){
+        if(p.target===25)p.done=true;else p.target=p.target===20?25:p.target+1;
+      }
+    },
+    winner(){const i=G.players.findIndex(p=>p.done);return i<0?null:i;},
+    big:p=>p.done?"KLAR":p.target===25?"Bull":String(p.target),
+    sub:p=>"Pilar "+p.darts+" · "+(p.done?21:p.target===25?20:p.target-1)+"/21",
+    msg:(p)=>'<span class="label">Sikta på </span><span class="chip nx">'+(p.target===25?"Bull":p.target)+'</span>',
+    stat:p=>({name:p.name,darts:p.darts,reached:p.done?21:(p.target===25?20:p.target-1)}),
+    statCols:[["Spelare",r=>r.name],["Klara",r=>r.reached+"/21","big"],["Pilar",r=>String(r.darts)]],
+    summary:r=>r.reached+"/21 på "+r.darts+" pilar"
+  },
+  checkout:{
+    label:"Utgångsträning",
+    init(p){p.left=0;p.target=0;p.tries=0;p.hits=0;p.best=0;},
+    start(p){p.target=randomCheckout(G.cfg.range);p.left=p.target;},
+    dart(p,d,t){
+      const rest=p.left-d.v;
+      if(rest===0&&d.m===2){p.left=0;p.hits++;if(p.target>p.best)p.best=p.target;t.result="hit";t.done=true;}
+      else if(rest<2){t.result="bust";t.done=true;}
+      else p.left=rest;
+    },
+    turnEnd(p){p.tries++;},
+    winner(){
+      const n=G.cfg.rounds||10;
+      if(!G.players.every(p=>p.tries>=n))return null;
+      let w=0;G.players.forEach((p,i)=>{if(p.hits>G.players[w].hits)w=i;});return w;
+    },
+    big:p=>String(p.left||p.target),
+    sub:p=>"Lyckade "+p.hits+"/"+p.tries+" · runda "+Math.min(p.tries+1,G.cfg.rounds||10)+"/"+(G.cfg.rounds||10),
+    msg(p,t){
+      if(t.result==="hit")return '<span class="label">Utgång! '+p.target+' avklarad.</span>';
+      if(t.result==="bust")return '<span class="label">Missad utgång. Nästa runda får ett nytt mål.</span>';
+      const co=checkout(p.left,3-t.darts.length,true);
+      return '<span class="label">Gå ut på '+p.left+' </span>'+(co?co.map((d,k)=>'<span class="chip'+(k===0?" nx":"")+(d.m===2?" d":"")+'">'+d.label+'</span>').join(""):'<span class="label">ingen utgång möjlig</span>');
+    },
+    stat:p=>({name:p.name,hits:p.hits,tries:p.tries,best:p.best,darts:p.darts}),
+    statCols:[["Spelare",r=>r.name],["Lyckade",r=>r.hits+"/"+r.tries,"big"],["Andel",r=>r.tries?Math.round(r.hits/r.tries*100)+"%":"–"],["Högsta",r=>r.best?String(r.best):"–"],["Pilar",r=>String(r.darts)]],
+    summary:r=>r.hits+"/"+r.tries+" utgångar"
+  },
+  bobs27:{
+    label:"Bob's 27",
+    init(p){p.score=27;p.round=0;p.rhits=0;p.out=false;p.dhits=0;},
+    dart(p,d){
+      const tg=BOB_TARGETS[p.round];
+      if(d.m===2&&d.n===tg){p.score+=tg*2;p.rhits++;p.dhits++;}
+    },
+    turnEnd(p){
+      const tg=BOB_TARGETS[p.round];
+      if(!p.rhits)p.score-=tg*2;
+      p.rhits=0;p.round++;
+      if(p.score<0)p.out=true;
+    },
+    finished:p=>p.out||p.round>=BOB_TARGETS.length,
+    winner(){
+      if(!G.players.every(p=>MODES.bobs27.finished(p)))return null;
+      let w=0;G.players.forEach((p,i)=>{if(p.score>G.players[w].score)w=i;});return w;
+    },
+    big:p=>String(p.score),
+    sub:p=>p.out?"Ute":"Runda "+Math.min(p.round+1,21)+"/21 · träff "+p.dhits,
+    msg(p){const tg=BOB_TARGETS[p.round];return tg?'<span class="label">Kasta på </span><span class="chip nx d">'+(tg===25?"Bull":"D"+tg)+'</span>':"";},
+    stat:p=>({name:p.name,score:p.score,hits:p.dhits,round:Math.min(p.round,21),out:p.out}),
+    statCols:[["Spelare",r=>r.name],["Poäng",r=>String(r.score),"big"],["Dubbelträffar",r=>String(r.hits)],["Rundor",r=>r.round+"/21"+(r.out?" (ute)":"")]],
+    summary:r=>r.score+" p"+(r.out?" (ute)":"")
+  }
+};
+const MODE_LABEL=m=>m==="x01"?"X01":(MODES[m]||{}).label||m;
+function newModeGame(cfg){
+  const M=MODES[cfg.mode];
+  G={mode:cfg.mode,cfg:{mode:cfg.mode,range:cfg.range||"61-100",rounds:cfg.rounds||10,names:cfg.names},id:Date.now().toString(36),date:new Date().toISOString(),
+     cur:0,winner:null,matchWinner:null,log:[],fmt:{legs:1,sets:0},players:cfg.names.map(n=>({name:n,darts:0}))};
+  G.players.forEach(p=>M.init(p));
+  G.turn={darts:[],done:false};
+  if(M.start)M.start(G.players[0]);
+  undo=[];save();render();
+}
+function modeDart(d,pos){
+  if(G.matchWinner!==null)return;
+  if(G.turn.done)modeNext();
+  snap();
+  const M=MODES[G.mode],p=G.players[G.cur],t=G.turn;
+  d=Object.assign({},d,{pos:pos||null});
+  t.darts.push(d);p.darts++;
+  M.dart(p,d,t);
+  if(t.darts.length>=3)t.done=true;
+  if(t.done&&M.turnEnd)M.turnEnd(p,t);
+  const w=M.winner();
+  if(w!=null){G.winner=G.matchWinner=w;t.done=true;saveModeHistory();setTimeout(()=>{if(G.matchWinner!==null)openStats("match");},4200);}
+  if(t.done){
+    G.log.unshift(p.name+": "+t.darts.map(x=>x.label).join(", ")+(w!=null?" · vinst":""));G.log=G.log.slice(0,40);
+    if(w!=null)caller.modeWin(G.players[w]);
+  }else caller.dart();
+  save();render();
+}
+function modeNext(){
+  if(G.matchWinner!==null)return;
+  snap();
+  const M=MODES[G.mode],p=G.players[G.cur],t=G.turn;
+  if(!t.done){p.darts+=3-t.darts.length;t.done=true;if(M.turnEnd)M.turnEnd(p,t);
+    const w=M.winner();if(w!=null){G.winner=G.matchWinner=w;saveModeHistory();caller.modeWin(G.players[w]);save();render();return;}}
+  // skip players who are out (Bob's 27)
+  for(let k=0;k<G.players.length;k++){
+    G.cur=(G.cur+1)%G.players.length;
+    if(!(M.finished&&M.finished(G.players[G.cur])))break;
+  }
+  G.turn={darts:[],done:false};
+  if(M.start)M.start(G.players[G.cur]);
+  save();render();cam.onNewTurn();
+}
+function saveModeHistory(){
+  if(sess.role==="client")return;
+  const M=MODES[G.mode],h=matchHistory().filter(m=>m.id!==G.id);
+  h.unshift({id:G.id,date:G.date,mode:G.mode,winner:G.players[G.matchWinner].name,players:G.players.map(M.stat)});
+  store.set("dk_history",h.slice(0,200));
+}
+function renderMode(){
+  const M=MODES[G.mode];
+  $("gameMeta").textContent=M.label+(G.mode==="checkout"?" · "+G.cfg.range+" · "+(G.cfg.rounds||10)+" rundor":"");
+  const pl=$("players");pl.innerHTML="";
+  G.players.forEach((p,i)=>{
+    const el=document.createElement("div");
+    el.className="pl"+(i===G.cur&&G.matchWinner===null?" on":"")+(G.matchWinner===i?" won":"");
+    el.title="Tryck för att ändra namn eller bild";
+    el.innerHTML='<div class="nm"><span class="who"><span class="av"></span><span class="pn"></span></span>'+(i===G.cur&&G.matchWinner===null?'<span class="dot" title="Kastar"></span>':"")+'</div>'+
+      '<div class="sc"></div><div class="st"><span class="msub"></span></div>';
+    el.querySelector(".pn").textContent=p.name;el.querySelector(".sc").textContent=M.big(p);el.querySelector(".msub").textContent=M.sub(p);
+    fillAv(el.querySelector(".av"),p.name,profiles()[p.name]);
+    el.addEventListener("click",()=>openEdit(i));
+    pl.appendChild(el);
+  });
+  const t=G.turn,p=G.players[G.cur];
+  $("turnLabel").textContent=G.matchWinner!==null?"Spelet är avgjort":"Tur: "+p.name;
+  const sl=$("slots");sl.innerHTML="";
+  for(let i=0;i<3;i++){const s=document.createElement("div"),d=t.darts[i];s.className="slot"+(d?" f":"");s.textContent=d?d.label:"";sl.appendChild(s);}
+  const sum=document.createElement("div");sum.className="slot sum";sum.innerHTML="<small>Pilar</small>"+t.darts.length+"/3";sl.appendChild(sum);
+  const m=$("msg");m.className="msg co";
+  const solo=G.players.length===1;
+  if(G.matchWinner!==null){m.className="msg win";m.textContent=solo?"Klart! Se statistiken eller tryck Kör igen.":G.players[G.matchWinner].name+" vinner! Se statistiken eller tryck Revansch.";}
+  else m.innerHTML=M.msg(p,t);
+  $("modeBox").innerHTML=M.table?M.table():"";$("modeBox").hidden=!M.table;
+  $("btnNext").textContent=G.matchWinner!==null?(solo?"Kör igen":"Revansch"):(solo?"Nästa runda":"Nästa spelare");
+  $("btnUndo").disabled=sess.role==="client"?!sess.undoN:!undo.length;
+  $("log").innerHTML="";G.log.forEach(l=>{const d=document.createElement("div");d.textContent=l;$("log").appendChild(d);});
+  drawMarkers();
+  if($("statsPanel")&&!$("statsPanel").hidden)renderStats();
+}
+
 /* ---------- Statistics history (finished matches, on this device) ---------- */
 function statRow(p){
   const s=p.st||newStats();
@@ -643,7 +865,7 @@ function removeHistory(id){store.set("dk_history",matchHistory().filter(m=>m.id!
 // career totals per player name across saved matches
 function careers(){
   const c={};
-  matchHistory().forEach(m=>m.players.forEach(r=>{
+  matchHistory().filter(m=>!m.mode||m.mode==="x01").forEach(m=>m.players.forEach(r=>{
     const k=r.name,x=c[k]||(c[k]={name:k,matches:0,wins:0,pts:0,darts:0,c180:0,c140:0,c100:0,hiCo:0,coHit:0,coTry:0,best:0});
     x.matches++;if(m.winner===k)x.wins++;
     x.pts+=r.pts||0;x.darts+=r.darts||0;x.c180+=r.c180;x.c140+=r.c140;x.c100+=r.c100;
@@ -706,7 +928,7 @@ function fmtText(f){
 }
 function rematch(){
   if(sess.role==="client"){sess.send({a:"rematch"});return;}
-  const cfg={start:G.start,dbl:G.dbl,fmt:G.fmt,names:G.players.map(p=>p.name)};
+  const cfg=G.mode!=="x01"?Object.assign({},G.cfg,{names:G.players.map(p=>p.name)}):{start:G.start,dbl:G.dbl,fmt:G.fmt,names:G.players.map(p=>p.name)};
   // the loser of the last match starts
   const loser=G.players.map(p=>p.name).filter((n,i)=>i!==G.matchWinner);
   if(loser.length)cfg.names=loser.concat(cfg.names.filter(n=>!loser.includes(n)));
@@ -988,6 +1210,11 @@ const caller=(function(){
       }else fx.flash(sum===0?"NO SCORE":String(sum),false);
       call("s"+sum,sum===0?"No score":en(sum),sum===0?"Inga poäng":String(sum),{rate:sum>=100?0.88:0.95,pitch:sum>=100?1.05:1,e:sum>=140?0.7:sum>=100?0.45:sum>=60?0.15:0});
     },
+    modeWin(p){
+      fx.gameShot(p.name,MODE_LABEL(G.mode).toUpperCase());
+      if(fxOn())audio.sfx("win");
+      call("gameshot","Game shot, "+p.name+"!","Vinst för "+p.name+"!",{e:0.85});
+    },
     turnStart(){
       const p=G.players[G.cur];
       if(G.dbl&&p.score<=170&&checkout(p.score,3,true))
@@ -1014,7 +1241,11 @@ function statTable(cols,rows){
 function renderStats(){
   const body=$("statsBody");body.innerHTML="";
   ["Match","Hist","List"].forEach(k=>$("stTab"+k).setAttribute("aria-selected",String(statTab===k.toLowerCase())));
-  if(statTab==="match"){
+  if(statTab==="match"&&G.mode!=="x01"){
+    const M=MODES[G.mode],head=document.createElement("p");head.className="help";
+    head.textContent=M.label+(G.matchWinner!=null?" · Vinnare: "+G.players[G.matchWinner].name:" · pågår");
+    body.appendChild(head);body.appendChild(statTable(M.statCols,G.players.map(M.stat)));
+  }else if(statTab==="match"){
     const head=document.createElement("p");head.className="help";
     head.textContent=G.start+" · "+fmtText(G.fmt)+(G.matchWinner!=null?" · Vinnare: "+G.players[G.matchWinner].name:" · pågår");
     body.appendChild(head);
@@ -1031,9 +1262,10 @@ function renderStats(){
     const l=document.createElement("div");l.className="mlist";
     h.slice(0,50).forEach(m=>{
       const r=document.createElement("div");r.className="mrow";
-      const d=document.createElement("span");d.textContent=new Date(m.date).toLocaleDateString("sv-SE",{day:"numeric",month:"short"})+" · "+m.start;
+      const d=document.createElement("span");d.textContent=new Date(m.date).toLocaleDateString("sv-SE",{day:"numeric",month:"short"})+" · "+(m.mode&&m.mode!=="x01"?MODE_LABEL(m.mode):m.start);
       const w=document.createElement("span");w.className="w";w.textContent=m.winner;
-      const o=document.createElement("span");o.textContent=m.players.map(p=>p.name+" "+(m.fmt&&m.fmt.sets>1?p.sets:p.legs)+" ("+f1(p.avg)+")").join(" – ");
+      const o=document.createElement("span");
+      o.textContent=m.mode&&m.mode!=="x01"&&MODES[m.mode]?m.players.map(p=>p.name+": "+MODES[m.mode].summary(p)).join(" – "):m.players.map(p=>p.name+" "+(m.fmt&&m.fmt.sets>1?p.sets:p.legs)+" ("+f1(p.avg)+")").join(" – ");
       r.append(d,w,o);l.appendChild(r);
     });
     body.appendChild(l);
@@ -1046,6 +1278,8 @@ function openStats(tab){if(tab)statTab=tab;$("statsPanel").hidden=false;renderSt
 
 /* ---------- Render ---------- */
 function render(){
+  if(G.mode!=="x01"){renderMode();return;}
+  $("modeBox").hidden=true;
   $("gameMeta").textContent=G.start+" · "+(G.dbl?"dubbel ut":"rak ut")+" · "+fmtText(G.fmt);
   const pl=$("players");pl.innerHTML="";
   G.players.forEach((p,i)=>{
@@ -1773,6 +2007,10 @@ const sess=(function(){
     else if(m.a==="next")nextPlayer();
     else if(m.a==="rematch"){if(G.matchWinner!=null)rematch();}
     else if(m.a==="newgame"&&m.cfg&&Array.isArray(m.cfg.names)){
+      if(["cricket","atc","checkout","bobs27"].includes(m.cfg.mode)){
+        newGame({mode:m.cfg.mode,range:CO_RANGES[m.cfg.range]?m.cfg.range:"61-100",rounds:[5,10,20].includes(m.cfg.rounds)?m.cfg.rounds:10,names:m.cfg.names.slice(0,4).map(n=>String(n).slice(0,24))});
+        cam.onNewTurn();caller.gameOn();return;
+      }
       const f=m.cfg.fmt||{},legs=[1,3,5,7,9,11].includes(f.legs)?f.legs:1,sets=[0,3,5,7].includes(f.sets)?f.sets:0;
       newGame({start:[301,501,701].includes(m.cfg.start)?m.cfg.start:501,dbl:!!m.cfg.dbl,fmt:{legs,sets},names:m.cfg.names.slice(0,4).map(n=>String(n).slice(0,24))});
       cam.onNewTurn();caller.gameOn();
@@ -2093,6 +2331,20 @@ $("stTabHist").addEventListener("click",()=>openStats("hist"));
 $("stTabList").addEventListener("click",()=>openStats("list"));
 $("btnCancel").addEventListener("click",()=>{$("settings").hidden=true;});
 $("selN").addEventListener("change",buildNames);
+const MODE_HELP={
+  x01:"Räkna ner till noll. Med dubbel ut måste sista pilen vara en dubbel eller bull.",
+  cricket:"Stäng 15–20 och bull med tre träffar var (dubbel = 2, trippel = 3). Fler träffar på en stängd siffra ger poäng tills motståndarna stänger den. Den som stänger allt och har minst lika många poäng vinner.",
+  atc:"Träffa 1 till 20 i tur och ordning och sist bull. Alla delar av siffran räknas. Först runt vinner.",
+  checkout:"Varje runda får ett slumpat utgångsmål. Du har tre pilar på dig att gå ut med en dubbel. Appen visar proffsvägen.",
+  bobs27:"Börja på 27 poäng. Kasta tre pilar på D1, sedan D2 och så vidare till bull. Varje träff ger dubbelns värde, ingen träff drar av det. Under noll är du ute."
+};
+function modeOpts(){
+  const m=$("selMode").value;
+  document.querySelectorAll(".opt-x01").forEach(el=>el.hidden=m!=="x01");
+  document.querySelectorAll(".opt-co").forEach(el=>el.hidden=m!=="checkout");
+  $("modeHelp").textContent=MODE_HELP[m]||"";
+}
+$("selMode").addEventListener("change",modeOpts);modeOpts();
 fillVoiceSelect();
 $("selVoice").addEventListener("change",e=>{
   const v=e.target.value;
@@ -2114,7 +2366,9 @@ $("editCancel").addEventListener("click",closeEdit);
 $("btnStart").addEventListener("click",()=>{
   const n=+$("selN").value,names=[];
   for(let i=0;i<n;i++)names.push(($("name"+i).value||"").trim()||"Spelare "+(i+1));
-  const cfg={start:+$("selStart").value,dbl:$("chkDbl").checked,names,fmt:{legs:+$("selLegs").value,sets:+$("selSets").value}};
+  const mode=$("selMode").value;
+  const cfg=mode==="x01"?{mode,start:+$("selStart").value,dbl:$("chkDbl").checked,names,fmt:{legs:+$("selLegs").value,sets:+$("selSets").value}}
+    :{mode,names,range:$("selRange").value,rounds:+$("selRounds").value};
   $("settings").hidden=true;
   if(sess.role==="client"){sess.send({a:"newgame",cfg});return;}
   newGame(cfg);cam.onNewTurn();caller.gameOn();
