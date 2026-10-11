@@ -34,6 +34,17 @@
       "takes": 2,
       "model": "gpt-4o-mini-tts",
       "clips": 3
+    },
+    {
+      "id": "ross-3",
+      "name": "Ross 3",
+      "status": "preview",
+      "voice": "onyx",
+      "style": "Whiskey härdad london-dialekt",
+      "tempo": 1.1,
+      "takes": 1,
+      "model": "gpt-4o-mini-tts",
+      "clips": 2
     }
   ]
 }
