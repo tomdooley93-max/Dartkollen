@@ -1,5 +1,5 @@
 // Bump VERSION on every release so installed apps pick up the update.
-const VERSION = "1.8.1";
+const VERSION = "1.9.0";
 const CACHE = "trebleeye-" + VERSION;
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./lib/peerjs.min.js", "./lib/qrcode.js", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 

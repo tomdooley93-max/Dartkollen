@@ -170,7 +170,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.8.1</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.9.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -562,10 +562,27 @@ const audio=(function(){
     const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.04;
     await sleep((endAt-a.currentTime)*1000);
   }
-  async function clip(name){
+  // small synthetic hall: decaying stereo noise used as a reverb impulse
+  let verb=null;
+  function hall(a){
+    if(verb)return verb;
+    const len=Math.floor(a.sampleRate*1.4),ir=a.createBuffer(2,len,a.sampleRate);
+    for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.2);}
+    const cv=a.createConvolver();cv.buffer=ir;const wet=a.createGain();wet.gain.value=1;cv.connect(wet).connect(a.destination);
+    return verb={cv,wet};
+  }
+  const takes=()=>{const v=(typeof VOICES!=="undefined"?VOICES:[]).find(x=>x.id===VOICE);return Math.max(1,Math.min(3,(v&&v.takes)|0||1));};
+  // energy 0..1: bigger scores sound a touch higher, faster and roomier; every call varies slightly
+  async function clip(name,energy){
     const a=ctx();if(!a)throw new Error("no audio");
-    const b=await load(name),s=a.createBufferSource();s.buffer=b;s.connect(a.destination);
-    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.04;
+    const n=takes(),k=1+Math.floor(Math.random()*n);let b;
+    try{b=await load(k>1?name+"_"+k:name);}catch(e){if(k===1)throw e;b=await load(name);}
+    const e=Math.max(0,Math.min(1,energy||0)),rate=1+e*0.045+(Math.random()-0.5)*0.04;
+    const s=a.createBufferSource();s.buffer=b;s.playbackRate.value=rate;
+    const g=a.createGain();g.gain.value=0.92+Math.random()*0.08+e*0.08;
+    const send=a.createGain();send.gain.value=0.07+e*0.11;
+    s.connect(g);g.connect(a.destination);g.connect(send);send.connect(hall(a).cv);
+    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration/rate+0.04;
   }
   function noise(a,dur){const b=a.createBuffer(1,Math.ceil(a.sampleRate*dur),a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
   function sfx(type){
@@ -596,7 +613,8 @@ const audio=(function(){
   }
   // fill the offline cache in the background once the app is idle
   function prefetch(names){
-    if(location.protocol!=="https:")return;let i=0;const base="audio/"+VOICE+"/";
+    if(location.protocol!=="https:")return;let i=0;const base="audio/"+VOICE+"/",n=takes();
+    if(n>1)names=names.flatMap(x=>[x].concat(Array.from({length:n-1},(_,j)=>x+"_"+(j+2))));
     const next=()=>{if(i>=names.length)return;fetch(base+names[i++]+".mp3").catch(()=>{}).finally(()=>setTimeout(next,60));};
     setTimeout(next,4000);
   }
@@ -754,7 +772,7 @@ const caller=(function(){
   function call(clipName,enText,svText,opt){
     if(lang==="off")return;
     if(lang==="sv"){tts(svText,opt,"sv");return;}
-    if(lang==="pro"&&clipName){audio.clip(clipName).catch(()=>tts(enText,opt,"en"));return;}
+    if(lang==="pro"&&clipName){audio.clip(clipName,opt&&opt.e).catch(()=>tts(enText,opt,"en"));return;}
     tts(enText,opt,"en");
   }
   const fxOn=()=>lang!=="off";
@@ -768,25 +786,25 @@ const caller=(function(){
         const co=t.start;
         fx.gameShot(p.name,co===170?"THE BIG FISH · 170":co>=100?"CHECKOUT "+co:"");
         if(fxOn())audio.sfx("win");
-        call("gameshot","Game shot, and the leg, "+p.name+"!","Game shot, och leget till "+p.name+"!",{rate:0.88,pitch:1.05});
+        call("gameshot","Game shot, and the leg, "+p.name+"!","Game shot, och leget till "+p.name+"!",{rate:0.88,pitch:1.05,e:0.85});
         return;
       }
       if(t.bust){fx.bust();if(fxOn())audio.sfx("bust");call("s0","No score","Inga poäng");return;}
-      if(sum===180){fx.oneEighty(()=>call("s180","One hundred... and eighty!","Ett hundra... och åttio!",{rate:0.8,pitch:1.1}));return;}
+      if(sum===180){fx.oneEighty(()=>call("s180","One hundred... and eighty!","Ett hundra... och åttio!",{rate:0.8,pitch:1.1,e:1}));return;}
       if(sum>=100){
         fx.score({main:String(sum),sub:sum>=140?"TON-FORTY PLUS":sum>100?"TON-PLUS":"THE TON",at:0.05,ray:"#f2b33d",conf:sum>=140?120:70,dur:2000});
         if(fxOn())audio.sfx("whoosh");
       }else fx.flash(sum===0?"NO SCORE":String(sum),false);
-      call("s"+sum,sum===0?"No score":en(sum),sum===0?"Inga poäng":String(sum),{rate:sum>=100?0.88:0.95,pitch:sum>=100?1.05:1});
+      call("s"+sum,sum===0?"No score":en(sum),sum===0?"Inga poäng":String(sum),{rate:sum>=100?0.88:0.95,pitch:sum>=100?1.05:1,e:sum>=140?0.7:sum>=100?0.45:sum>=60?0.15:0});
     },
     turnStart(){
       const p=G.players[G.cur];
       if(G.dbl&&p.score<=170&&checkout(p.score,3,true))
-        call("r"+p.score,p.name+", you require "+en(p.score),p.name+", du behöver "+p.score);
+        call("r"+p.score,p.name+", you require "+en(p.score),p.name+", du behöver "+p.score,{e:0.2});
     },
     gameOn(){
       const p=G.players[G.cur];
-      call("gameon",p.name+" to throw first. Game on!",p.name+" börjar. Game on!");
+      call("gameon",p.name+" to throw first. Game on!",p.name+" börjar. Game on!",{e:0.6});
     },
     clipNames(){const n=["gameon","gameshot"];for(let i=0;i<=180;i++)n.push("s"+i);for(let i=2;i<=170;i++)if(CO[i])n.push("r"+i);return n;}
   };

@@ -24,6 +24,11 @@ on:
         type: choice
         options: ["1.0", "1.1", "1.2", "1.3"]
         default: "1.1"
+      takes:
+        description: "Tagningar per utrop (fler = mer variation, kostar mer)"
+        type: choice
+        options: ["1", "2", "3"]
+        default: "2"
       style:
         description: "Stil på engelska (lämna tomt för standardstilen)"
         required: false
@@ -56,6 +61,7 @@ jobs:
           VOICE: ${{ inputs.voice }}
           STYLE: ${{ inputs.style }}
           TEMPO: ${{ inputs.tempo }}
+          TAKES: ${{ inputs.takes }}
         run: python3 tools/voice.py
 
       - name: Commit and publish

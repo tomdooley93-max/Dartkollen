@@ -7,6 +7,7 @@ Run by .github/workflows/voice.yml. Settings come from environment variables:
   VOICE   OpenAI voice (onyx, ash, echo, ...)
   STYLE   style instruction in English (empty = default)
   TEMPO   playback speed applied afterwards, 0.8-1.5 (default 1.1)
+  TAKES   takes per clip, 1-3 (default 2); the app picks one at random so calls vary
   OPENAI_API_KEY
 """
 import json, os, re, subprocess, sys, tempfile, time, urllib.error, urllib.request
@@ -59,8 +60,14 @@ def all_clips():
     return names
 
 
-def tts(key, voice, style, name):
+TAKE_HINTS = ["",
+              " This is an alternative take: vary the rhythm and put the emphasis on a different word than usual.",
+              " Another alternative take: a fresh, spontaneous read with a bit more grit and attitude."]
+
+
+def tts(key, voice, style, name, take=1):
     text, hint = clip(name)
+    hint += TAKE_HINTS[take - 1]
     body = json.dumps({"model": "gpt-4o-mini-tts", "voice": voice, "input": text,
                        "instructions": style + " " + hint, "response_format": "mp3"}).encode()
     for attempt in range(6):
@@ -122,6 +129,10 @@ def main():
         tempo = min(1.5, max(0.8, float(os.environ.get("TEMPO", "1.1") or 1.1)))
     except ValueError:
         tempo = 1.1
+    try:
+        takes = min(3, max(1, int(os.environ.get("TAKES", "2") or 2)))
+    except ValueError:
+        takes = 2
     if not name:
         sys.exit("Ange ett namn på rösten.")
     vid = slug(name)
@@ -141,14 +152,17 @@ def main():
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
         sys.exit("Hemligheten OPENAI_API_KEY saknas. Lägg in den under Settings > Secrets and variables > Actions.")
-    names = ["s180", "r144", "gameshot"] if action == "provlyssna" else all_clips()
+    base = ["s180", "r144", "gameshot"] if action == "provlyssna" else all_clips()
+    # (clip name, take, file name): take 1 is "s60.mp3", take 2 "s60_2.mp3" and so on
+    names = [(n, t, n if t == 1 else "%s_%d" % (n, t)) for n in base for t in range(1, takes + 1)]
     out_dir = os.path.join(ROOT, "audio", vid)
     os.makedirs(out_dir, exist_ok=True)
 
     done = [0]
 
-    def work(n):
-        normalise(tts(key, voice, style, n), os.path.join(out_dir, n + ".mp3"), tempo)
+    def work(item):
+        n, t, fname = item
+        normalise(tts(key, voice, style, n, t), os.path.join(out_dir, fname + ".mp3"), tempo)
         done[0] += 1
         if done[0] % 25 == 0 or done[0] == len(names):
             print("%d/%d klipp klara" % (done[0], len(names)), flush=True)
@@ -156,10 +170,12 @@ def main():
     with ThreadPoolExecutor(max_workers=4) as pool:
         list(pool.map(work, names))
 
-    clips = len([f for f in os.listdir(out_dir) if f.endswith(".mp3")])
+    # count distinct clips (not takes) so "publicera" can check the voice is complete
+    clips = len({re.sub(r"_\d$", "", f[:-4]) for f in os.listdir(out_dir) if f.endswith(".mp3")})
     # new voices start as "preview" (only visible in admin mode); existing ones keep their status
     new = {"id": vid, "name": name, "status": (entry or {}).get("status", "preview"),
-           "voice": voice, "style": style, "tempo": tempo, "model": "gpt-4o-mini-tts", "clips": clips}
+           "voice": voice, "style": style, "tempo": tempo, "takes": takes if action == "skapa" else (entry or {}).get("takes", takes),
+           "model": "gpt-4o-mini-tts", "clips": clips}
     if entry:
         entry.update(new)
     else:
