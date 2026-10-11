@@ -44,7 +44,7 @@
       "tempo": 1.1,
       "takes": 1,
       "model": "gpt-4o-mini-tts",
-      "clips": 4
+      "clips": 345
     }
   ]
 }
