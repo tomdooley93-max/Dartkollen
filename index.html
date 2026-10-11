@@ -127,6 +127,33 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
 .crt td.n{color:var(--mut);font-size:18px;text-align:left}
 .crt tr.dead td{opacity:.35}
 html.tv .crt td{font-size:clamp(24px,3vw,52px)}
+.screen{display:none}
+.screen.active{display:block}
+@media (prefers-reduced-motion:no-preference){
+  .screen.active.fwd{animation:slideL .3s cubic-bezier(.2,.8,.2,1)}
+  .screen.active.back{animation:slideR .3s cubic-bezier(.2,.8,.2,1)}
+  .sheet:not([hidden]){animation:sheetUp .26s ease-out}
+}
+@keyframes slideL{from{transform:translateX(48px);opacity:0}to{transform:none;opacity:1}}
+@keyframes slideR{from{transform:translateX(-48px);opacity:0}to{transform:none;opacity:1}}
+@keyframes sheetUp{from{transform:translate(-50%,40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.bar .gmeta{flex:1;min-width:0;color:var(--mut);font-size:13px;letter-spacing:.06em;text-transform:uppercase;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .barpad{width:96px}
+.home-head{display:flex;flex-direction:column;align-items:center;gap:4px;margin:6vh 0 32px}
+.home-head h1{font-size:clamp(52px,15vw,88px);line-height:1}
+.home{display:flex;flex-direction:column;gap:12px;max-width:440px;margin:0 auto}
+.home .big{padding:18px;font-size:20px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:12px}
+.home .big small{font-size:13px;font-weight:400;opacity:.8}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tiles button{padding:14px 10px;border-radius:10px}
+.tiles .chipbtn{grid-column:1/-1}
+.home .voice{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.sheet{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(760px,100%);box-sizing:border-box;max-height:88vh;overflow:auto;z-index:45;
+  border-radius:16px 16px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -12px 40px rgba(0,0,0,.55);margin:0}
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:44}
+body:has(.sheet:not([hidden])) .backdrop{display:block}
+html.tv .bar,html.tv .backdrop{display:none!important}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
 .stt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;margin-top:12px}
@@ -155,6 +182,8 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
 #scanBox{margin-top:10px;max-width:320px}
 #scanVid,#remoteVid{width:100%;border-radius:10px;background:#000;display:block}
 .sessgrid{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:8px}
+#shareQR{background:#fff;border-radius:12px;padding:6px;width:200px;max-width:100%}
+#shareQR svg{display:block;width:100%;height:auto}
 #sessQR{background:#fff;border-radius:12px;padding:6px;width:200px;max-width:100%}
 #sessQR svg{display:block;width:100%;height:auto}
 .sessinfo{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1}
@@ -224,6 +253,7 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
 </style>
 
 <div class="flash" id="flash" aria-live="polite"></div>
+<div class="backdrop" id="backdrop"></div>
 <div class="tvbar" id="tvBar" hidden>
   <span id="tvHint">Tryck en gång på skärmen för att slå på ljudet</span>
   <button id="tvExit">Lämna TV-läge</button>
@@ -233,24 +263,30 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
   <button class="pri" id="btnUpd">Uppdatera</button>
 </div>
 <div class="wrap">
-  <header>
-    <div>
+  <div class="screen active" id="scrHome">
+    <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.4.0</span></div>
-    </div>
-    <div class="row">
-      <select id="selVoice" aria-label="Uppropare">
+      <div class="meta"><span id="appVer">v2.5.0</span></div>
+    </header>
+    <div class="home">
+      <button class="pri big" id="btnSettings">Nytt spel</button>
+      <button class="big" id="btnResume" hidden>Fortsätt spelet<small id="resumeInfo"></small></button>
+      <div class="tiles">
+        <button id="btnSess">Starta session</button>
+        <button id="btnJoin">Anslut till session</button>
+        <button class="chipbtn" id="sessChip" hidden></button>
+        <button id="btnStats">Statistik</button>
+        <button id="btnShareApp">Dela appen</button>
+      </div>
+      <label class="label voice">Uppropare
+        <select id="selVoice" aria-label="Uppropare">
         <option value="off">Ljud av</option>
       </select>
-      <button class="chipbtn" id="sessChip" hidden></button>
-      <button id="btnSess">Starta session</button>
-      <button id="btnJoin">Anslut</button>
-      <button id="btnStats">Statistik</button>
-      <button id="btnSettings">Nytt spel</button>
+      </label>
     </div>
-  </header>
+  </div>
 
-  <section id="editPl" class="panel" hidden style="margin-bottom:16px">
+  <section id="editPl" class="panel sheet" hidden>
     <div class="label" style="margin-bottom:10px">Ändra spelare</div>
     <div class="edit">
       <div class="av lg" id="editAv"></div>
@@ -271,7 +307,7 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
     </div>
   </section>
 
-  <section id="voiceAdmin" class="panel" hidden style="margin-bottom:16px">
+  <section id="voiceAdmin" class="panel sheet" hidden>
     <div class="row" style="justify-content:space-between">
       <div class="label">Hantera röster (admin)</div>
       <button id="voiceAdminClose">Stäng</button>
@@ -305,7 +341,7 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
     <div class="status" id="vaMsg" hidden></div>
   </section>
 
-  <section id="sessPanel" class="panel" hidden style="margin-bottom:16px">
+  <section id="sessPanel" class="panel sheet" hidden>
     <div class="row" style="justify-content:space-between">
       <div class="label">Delad session</div>
       <button id="sessClose">Stäng</button>
@@ -348,7 +384,22 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
     <div class="status" id="sessMsg" hidden></div>
   </section>
 
-  <section id="statsPanel" class="panel" hidden style="margin-bottom:16px">
+  <section id="sharePanel" class="panel sheet" hidden>
+    <div class="row" style="justify-content:space-between">
+      <div class="label">Dela TrebleEye</div>
+      <button id="shareClose">Stäng</button>
+    </div>
+    <div class="sessgrid">
+      <div id="shareQR" aria-label="QR-kod till appen"></div>
+      <div class="sessinfo">
+        <p class="help" style="margin:0">Låt en kompis skanna koden med kameran, eller skicka länken. Öppna den i Safari och välj Dela → Lägg till på hemskärmen.</p>
+        <div class="help sesslink" id="shareLink"></div>
+        <div class="row"><button class="pri" id="shareNative">Dela…</button><button id="shareCopy">Kopiera länk</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="statsPanel" class="panel sheet" hidden>
     <div class="row" style="justify-content:space-between">
       <div class="tabs small" role="tablist">
         <button role="tab" id="stTabMatch" aria-selected="true">Matchen</button>
@@ -360,7 +411,9 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
     <div id="statsBody"></div>
   </section>
 
-  <section id="settings" class="panel" hidden>
+  <div class="screen" id="scrSetup">
+    <div class="bar"><button id="btnBackSetup">‹ Tillbaka</button><span class="gmeta">Nytt spel</span><span class="barpad"></span></div>
+  <section id="settings" class="panel">
     <div class="set">
       <label>Spelläge
         <select id="selMode">
@@ -398,7 +451,10 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
       <button id="btnCancel">Avbryt</button>
     </div>
   </section>
+  </div>
 
+  <div class="screen" id="scrGame">
+    <div class="bar"><button id="btnMenu">‹ Meny</button><span class="gmeta" id="gameMeta"></span><button class="chipbtn" id="sessChip2" hidden></button><button id="btnStats2">Statistik</button></div>
   <div class="grid">
     <div>
       <div class="players" id="players"></div>
@@ -490,6 +546,7 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
         </div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 
@@ -1276,6 +1333,25 @@ function renderStats(){
 }
 function openStats(tab){if(tab)statTab=tab;$("statsPanel").hidden=false;renderStats();}
 
+/* ---------- Screens: home -> new game -> game ---------- */
+let curScreen="home";
+function showScreen(name){
+  const order={home:0,setup:1,game:2},dir=order[name]>=order[curScreen]?"fwd":"back";
+  ["home","setup","game"].forEach(n=>{
+    const el=$("scr"+n[0].toUpperCase()+n.slice(1)),on=n===name;
+    el.classList.toggle("active",on);el.classList.remove("fwd","back");
+    if(on&&n!==curScreen){void el.offsetWidth;el.classList.add(dir);}
+  });
+  curScreen=name;window.scrollTo(0,0);
+  if(name==="home")updateResume();
+}
+function updateResume(){
+  const has=!!(G&&(G.log.length||G.turn.darts.length)&&G.matchWinner==null);
+  $("btnResume").hidden=!has;
+  if(has)$("resumeInfo").textContent=G.players.map(p=>p.name).join(" – ")+" · "+$("gameMeta").textContent;
+}
+function closeSheets(){["editPl","voiceAdmin","sessPanel","statsPanel","sharePanel"].forEach(id=>{$(id).hidden=true;});}
+
 /* ---------- Render ---------- */
 function render(){
   if(G.mode!=="x01"){renderMode();return;}
@@ -1931,7 +2007,7 @@ const tv={
     clearTimeout(tv.t);tv.t=setTimeout(()=>bar.classList.add("faded"),8000);
     try{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
     try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{});}catch(e){}
-    ["sessPanel","statsPanel","settings","editPl","voiceAdmin"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+    closeSheets();showScreen("game");
     window.scrollTo(0,0);if(G)render();
   },
   exit(){
@@ -2052,6 +2128,7 @@ const sess=(function(){
     if(!m||typeof m!=="object")return;
     if(m.t==="state"&&m.G&&Array.isArray(m.G.players)){
       G=m.G;undoN=m.undoN|0;
+      if(curScreen!=="game"&&!onHostMsg.shown){onHostMsg.shown=true;$("sessPanel").hidden=true;showScreen("game");}
       if(m.photos&&typeof m.photos==="object"){const pr=profiles();
         Object.keys(m.photos).forEach(n=>{const ph=m.photos[n];if(typeof ph==="string"&&ph.startsWith("data:image/")&&pr[n]!==ph)saveProfile(n,ph);});}
       render();
@@ -2083,13 +2160,13 @@ const sess=(function(){
   /* UI */
   function setMsg(t){msg=t;const el=$("sessMsg");if(el){el.textContent=t;el.hidden=!t;}chip();}
   function chip(){
-    const c=$("sessChip");if(!c)return;
+    const c=$("sessChip"),c2=$("sessChip2");if(!c)return;
     $("btnSess").hidden=!!role;$("btnJoin").hidden=!!role;
-    if(!role){c.hidden=true;return;}
-    c.hidden=false;
+    if(!role){c.hidden=c2.hidden=true;return;}
     const live=role==="host"?(peer&&peer.open):(hostConn&&hostConn.open);
-    c.className="chipbtn"+(live?" live":"");
-    c.textContent=role==="host"?"Värd · "+code+" · "+conns.length+" anslutna":live?"Ansluten · "+code:"Återansluter · "+code;
+    const txt=role==="host"?"Värd · "+code+" · "+conns.length+" anslutna":live?"Ansluten · "+code:"Återansluter · "+code;
+    [c,c2].forEach(el=>{el.hidden=false;el.className="chipbtn"+(live?" live":"");el.textContent=txt;});
+    c2.textContent=role==="host"?code+" · "+conns.length:live?code:"…"+code;
   }
   function ui(){
     chip();
@@ -2323,13 +2400,35 @@ function buildNames(){
     l.appendChild(inp);box.appendChild(l);
   }
 }
-$("btnSettings").addEventListener("click",()=>{buildNames();$("settings").hidden=false;});
+$("btnSettings").addEventListener("click",()=>{buildNames();showScreen("setup");});
+$("btnBackSetup").addEventListener("click",()=>showScreen("home"));
+$("btnResume").addEventListener("click",()=>showScreen("game"));
+$("btnMenu").addEventListener("click",()=>showScreen("home"));
+$("btnStats2").addEventListener("click",()=>openStats());
+$("sessChip2").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
+$("backdrop").addEventListener("click",closeSheets);
+/* share the app itself (the public GitHub Pages address, also when opened from elsewhere) */
+const APP_URL=/github\.io$/.test(location.hostname)?location.origin+location.pathname:"https://tomdooley93-max.github.io/TrebleEye/";
+$("btnShareApp").addEventListener("click",()=>{
+  $("shareLink").textContent=APP_URL;
+  const qr=$("shareQR");
+  if(!qr.firstChild&&typeof qrcode!=="undefined"){const q=qrcode(0,"M");q.addData(APP_URL);q.make();qr.innerHTML=q.createSvgTag({cellSize:6,margin:3,scalable:true});}
+  qr.hidden=!qr.firstChild;$("shareNative").hidden=!navigator.share;
+  $("sharePanel").hidden=false;
+});
+$("shareClose").addEventListener("click",()=>{$("sharePanel").hidden=true;});
+$("shareNative").addEventListener("click",()=>{navigator.share({title:"TrebleEye",text:"Dartappen TrebleEye: poängräkning, uppropare och kamera.",url:APP_URL}).catch(()=>{});});
+$("shareCopy").addEventListener("click",()=>{
+  const done=()=>{$("shareCopy").textContent="Kopierad!";setTimeout(()=>{$("shareCopy").textContent="Kopiera länk";},2000);};
+  if(navigator.clipboard)navigator.clipboard.writeText(APP_URL).then(done,()=>{getSelection().selectAllChildren($("shareLink"));});
+  else getSelection().selectAllChildren($("shareLink"));
+});
 $("btnStats").addEventListener("click",()=>{if($("statsPanel").hidden)openStats();else $("statsPanel").hidden=true;});
 $("statsClose").addEventListener("click",()=>{$("statsPanel").hidden=true;});
 $("stTabMatch").addEventListener("click",()=>openStats("match"));
 $("stTabHist").addEventListener("click",()=>openStats("hist"));
 $("stTabList").addEventListener("click",()=>openStats("list"));
-$("btnCancel").addEventListener("click",()=>{$("settings").hidden=true;});
+$("btnCancel").addEventListener("click",()=>showScreen("home"));
 $("selN").addEventListener("change",buildNames);
 const MODE_HELP={
   x01:"Räkna ner till noll. Med dubbel ut måste sista pilen vara en dubbel eller bull.",
@@ -2369,7 +2468,7 @@ $("btnStart").addEventListener("click",()=>{
   const mode=$("selMode").value;
   const cfg=mode==="x01"?{mode,start:+$("selStart").value,dbl:$("chkDbl").checked,names,fmt:{legs:+$("selLegs").value,sets:+$("selSets").value}}
     :{mode,names,range:$("selRange").value,rounds:+$("selRounds").value};
-  $("settings").hidden=true;
+  showScreen("game");
   if(sess.role==="client"){sess.send({a:"newgame",cfg});return;}
   newGame(cfg);cam.onNewTurn();caller.gameOn();
 });
