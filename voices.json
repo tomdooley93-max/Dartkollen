@@ -1,8 +1,37 @@
 {
   "voices": [
-    {"id": "george", "name": "George", "status": "public", "clips": 345},
-    {"id": "lewis", "name": "Lewis", "status": "public", "clips": 345},
-    {"id": "daniel", "name": "Daniel", "status": "public", "clips": 345},
-    {"id": "fable", "name": "Fable", "status": "public", "clips": 345}
+    {
+      "id": "george",
+      "name": "George",
+      "status": "public",
+      "clips": 345
+    },
+    {
+      "id": "lewis",
+      "name": "Lewis",
+      "status": "public",
+      "clips": 345
+    },
+    {
+      "id": "daniel",
+      "name": "Daniel",
+      "status": "public",
+      "clips": 345
+    },
+    {
+      "id": "fable",
+      "name": "Fable",
+      "status": "public",
+      "clips": 345
+    },
+    {
+      "id": "big-m",
+      "name": "Big m",
+      "status": "preview",
+      "voice": "onyx",
+      "style": "Voice: a legendary British darts MC at a sold-out arena. Deep, gravelly, booming and theatrical, with a strong London accent. Delivery: slow and deliberate, stretch the vowels of the numbers and let the last word ring out, building drama like a boxing ring announcer. Never rush. The energy rises with the size of the score. Say exactly the words given and nothing else.",
+      "model": "gpt-4o-mini-tts",
+      "clips": 3
+    }
   ]
 }
