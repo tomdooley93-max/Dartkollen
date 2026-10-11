@@ -178,7 +178,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.2</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.3</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -561,6 +561,7 @@ function coLine(p,i){
 const audio=(function(){
   let ac=null,endAt=0;const buf={};let VOICE=store.get("dk_caller")||"george";
   if(!/^[a-z0-9-]+$/.test(VOICE))VOICE="george";
+  if(VOICE==="ross-3")VOICE="ross";   // renamed voice
   function ctx(){
     if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ac=new C();}
     if(ac.state==="suspended")ac.resume().catch(()=>{});
