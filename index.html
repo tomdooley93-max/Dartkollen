@@ -170,7 +170,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.9.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.9.1</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -1569,7 +1569,12 @@ function renderVoiceAdmin(){
     const t=document.createElement("div");t.className="pk";
     t.textContent=v.name+" · "+(STATUS_TXT[v.status]||v.status)+" · "+(v.clips||0)+" klipp"+(v.voice?" · "+v.voice:"");
     const b=document.createElement("button");b.textContent="Provlyssna";
-    b.onclick=()=>{audio.playUrl("audio/"+v.id+"/s180.mp3").then(()=>audio.playUrl("audio/"+v.id+"/r144.mp3")).then(()=>audio.playUrl("audio/"+v.id+"/gameshot.mp3")).catch(()=>{fx.flash("SAKNAS");});};
+    // plays every take of the preview clips so takes can be compared
+    b.onclick=async()=>{
+      const n=Math.max(1,Math.min(3,v.takes|0||1));
+      try{for(const c of ["s180","r144","gameshot"])for(let k=1;k<=n;k++)await audio.playUrl("audio/"+v.id+"/"+(k>1?c+"_"+k:c)+".mp3");}
+      catch(e){fx.flash("SAKNAS");}
+    };
     row.append(t,b);box.appendChild(row);
   });
 }
