@@ -32,6 +32,17 @@
       "style": "Voice: a legendary British darts MC at a sold-out arena. Deep, gravelly, booming and theatrical, with a strong London accent. Delivery: slow and deliberate, stretch the vowels of the numbers and let the last word ring out, building drama like a boxing ring announcer. Never rush. The energy rises with the size of the score. Say exactly the words given and nothing else.",
       "model": "gpt-4o-mini-tts",
       "clips": 3
+    },
+    {
+      "id": "ross",
+      "name": "Ross",
+      "status": "preview",
+      "voice": "onyx",
+      "style": "Voice: a charismatic British darts MC at a packed, noisy arena. Warm, gritty and full of life, with a London accent. Delivery: lively, natural pace with real emotion and no artificial pauses. Punch the numbers out with rhythm and swagger, lifting the pitch on big scores and only stretching the final word slightly. Sound excited to be there, never robotic or monotone. Say exactly the words given and nothing else.",
+      "tempo": 1.1,
+      "takes": 2,
+      "model": "gpt-4o-mini-tts",
+      "clips": 3
     }
   ]
 }
