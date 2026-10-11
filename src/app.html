@@ -253,7 +253,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
   <div class="screen active" id="scrHome">
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="appVer">v2.5.0</span></div>
+      <div class="meta"><span id="appVer">v2.5.1</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -633,9 +633,15 @@ function addDart(d,pos,fromCam){
     else if(t.darts.length===3)t.done=true;
   }
   if(t.done)turnStats(p,t);
-  if(t.done){logTurn();caller.turnDone(t,p);}else caller.dart();
+  if(t.done){logTurn();caller.turnDone(t,p);if(G.winner===null)autoAdvance(t.darts.reduce((s,x)=>s+x.v,0)===180&&!t.bust?2600:1600);}else caller.dart();
   save();render();
   if(!fromCam)cam.afterManual();
+}
+// once a turn is complete, hand over to the next player after the score has been shown
+let advanceT=null;
+function autoAdvance(ms){
+  clearTimeout(advanceT);const tok=G.turn;
+  advanceT=setTimeout(()=>{if(G&&G.turn===tok&&tok.done&&G.winner===null&&G.matchWinner==null)nextPlayer();},ms);
 }
 function turnStats(p,t){
   const st=p.st,sum=t.bust?0:t.darts.reduce((s,d)=>s+d.v,0);
@@ -835,7 +841,7 @@ function modeDart(d,pos){
   if(w!=null){G.winner=G.matchWinner=w;t.done=true;saveModeHistory();setTimeout(()=>{if(G.matchWinner!==null)openStats("match");},4200);}
   if(t.done){
     G.log.unshift(p.name+": "+t.darts.map(x=>x.label).join(", ")+(w!=null?" · vinst":""));G.log=G.log.slice(0,40);
-    if(w!=null)caller.modeWin(G.players[w]);
+    if(w!=null)caller.modeWin(G.players[w]);else autoAdvance(1400);
   }else caller.dart();
   save();render();
 }
