@@ -83,6 +83,14 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
 .flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);z-index:20;pointer-events:none;opacity:0;font-family:var(--f-num);font-weight:700;font-size:clamp(44px,16vw,96px);max-width:calc(100vw - 32px);box-sizing:border-box;line-height:1;color:var(--chalk);background:rgba(17,23,20,.88);border:2px solid var(--line);border-radius:18px;padding:14px clamp(14px,4vw,34px);white-space:nowrap}
 .flash.big{color:var(--warn);border-color:var(--warn)}
 .flash.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.badge{font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+.badge.public{border-color:var(--grn);color:#7fe0a0}
+.badge.preview{border-color:var(--warn);color:var(--warn)}
+.badge.fail{border-color:var(--red);color:var(--red)}
+.meta2{color:var(--mut);font-size:12px}
+.runrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.runrow a{color:var(--fg)}
+#vaStyle{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font:inherit;font-size:14px;width:100%;box-sizing:border-box}
 .steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 .steps a{color:#7fe0a0}
 .packrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
@@ -170,7 +178,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.9.2</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -211,16 +219,33 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
       <div class="label">Hantera röster (admin)</div>
       <button id="voiceAdminClose">Stäng</button>
     </div>
-    <p class="help">Nya röster skapas av ett jobb i GitHub, där din OpenAI-nyckel ligger säkert. Bara du som äger repot kan köra det.</p>
-    <ol class="help steps">
-      <li>Öppna <a href="https://github.com/tomdooley93-max/TrebleEye/actions/workflows/voice.yml" target="_blank" rel="noopener">Röst (OpenAI) på GitHub</a> och tryck <b>Run workflow</b>.</li>
-      <li><b>provlyssna</b> skapar tre provklipp. Lyssna här nedan efter 2–3 minuter.</li>
-      <li><b>skapa</b> gör alla klipp. Rösten syns då här i adminläge, märkt "förhand".</li>
-      <li><b>publicera</b> gör rösten synlig för alla. <b>dolj</b> gömmer den igen.</li>
-      <li><b>ta_bort</b> raderar rösten helt. Skriv namnet exakt som det står i listan nedan.</li>
-    </ol>
-    <div class="label" style="margin-top:6px">Röster</div>
+    <div id="vaConnect">
+      <p class="help">Koppla appen till GitHub en gång, så kan du publicera, dölja, ta bort och skapa röster härifrån. Nyckeln sparas bara på den här enheten.</p>
+      <div class="row"><input type="password" id="vaToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0" aria-label="GitHub-nyckel"><button class="pri" id="vaConnectBtn">Koppla</button></div>
+    </div>
+    <div class="label" style="margin-top:12px">Röster</div>
     <div id="voiceList"></div>
+    <div id="vaTools" hidden>
+      <div class="label" style="margin-top:16px">Skapa eller göra om en röst</div>
+      <div class="set" style="margin-top:8px">
+        <label class="label">Namn <input type="text" id="vaName" maxlength="24" placeholder="t.ex. Ross"></label>
+        <label class="label">OpenAI-röst <select id="vaVoice"></select></label>
+        <label class="label">Tempo <select id="vaTempo"><option>1.0</option><option selected>1.1</option><option>1.2</option><option>1.3</option></select></label>
+        <label class="label">Tagningar <select id="vaTakes"><option>1</option><option selected>2</option><option>3</option></select></label>
+        <label class="label">Bara dessa klipp (valfritt) <input type="text" id="vaClips" placeholder="t.ex. s180,gameshot"></label>
+      </div>
+      <label class="label" style="display:flex;flex-direction:column;gap:6px;margin-top:10px">Egen stil på engelska (valfritt)
+        <textarea id="vaStyle" rows="2" placeholder="Lämna tomt för standardstilen"></textarea>
+      </label>
+      <div class="row" style="margin-top:10px">
+        <button id="vaPreview">Provlyssna (3 klipp)</button>
+        <button class="pri" id="vaCreate">Skapa alla klipp</button>
+      </div>
+      <div class="label" style="margin-top:16px">Senaste jobb</div>
+      <div id="vaRuns"><div class="help">Inga jobb än.</div></div>
+      <button id="vaDisconnect" style="margin-top:12px">Koppla från GitHub</button>
+    </div>
+    <div class="status" id="vaMsg" hidden></div>
   </section>
 
   <section id="sessPanel" class="panel" hidden style="margin-bottom:16px">
@@ -1534,6 +1559,7 @@ const sess=(function(){
 const VOICE_FALLBACK=[{id:"george",name:"George",status:"public"},{id:"lewis",name:"Lewis",status:"public"},{id:"daniel",name:"Daniel",status:"public"},{id:"fable",name:"Fable",status:"public"}];
 let VOICES=store.get("dk_voices")||VOICE_FALLBACK;
 async function loadVoices(){
+  if(admin.on&&gh.token){voiceAdmin.refresh();return;}   // admins read the repo directly, without the Pages delay
   try{
     const r=await fetch("voices.json",{cache:"no-store"});if(!r.ok)return;
     const j=await r.json();if(!j||!Array.isArray(j.voices))return;
@@ -1563,23 +1589,135 @@ function fillVoiceSelect(){
   sel.value=cur;
   if(sel.value!==cur){const fb=VOICES.find(v=>v.status==="public")||VOICE_FALLBACK[0];sel.value="pro:"+fb.id;if(cur.startsWith("pro:"))audio.setVoice(fb.id);}
 }
-function renderVoiceAdmin(){
-  const box=$("voiceList");if(!box)return;box.innerHTML="";
-  VOICES.forEach(v=>{
-    const row=document.createElement("div");row.className="packrow";
-    const t=document.createElement("div");t.className="pk";
-    t.textContent=v.name+" · "+(STATUS_TXT[v.status]||v.status)+" · "+(v.clips||0)+" klipp"+(v.takes>1?" ×"+v.takes:"")+(v.voice?" · "+v.voice:"");
-    const b=document.createElement("button");b.textContent="Provlyssna";
-    // plays every take of the preview clips so takes can be compared
-    b.onclick=async()=>{
-      const n=Math.max(1,Math.min(3,v.takes|0||1));
-      try{for(const c of ["s180","r144","gameshot"])for(let k=1;k<=n;k++)await audio.playUrl("audio/"+v.id+"/"+(k>1?c+"_"+k:c)+".mp3");}
-      catch(e){fx.flash("SAKNAS");}
-    };
-    row.append(t,b);box.appendChild(row);
-  });
-}
-function openVoiceAdmin(){renderVoiceAdmin();$("voiceAdmin").hidden=false;$("voiceAdmin").scrollIntoView({behavior:"smooth",block:"start"});loadVoices();}
+/* ---------- GitHub connection for admins (voices.json edits and voice jobs) ---------- */
+// The admin's own fine-grained token (Contents + Actions on this repo) is kept on this device only.
+const gh={
+  OWNER:"tomdooley93-max",REPO:"TrebleEye",
+  get token(){return store.get("dk_ghtoken")||"";},
+  set token(v){store.set("dk_ghtoken",v||null);},
+  async api(path,opt){
+    opt=opt||{};
+    const h={"Accept":"application/vnd.github+json","Authorization":"Bearer "+this.token,"X-GitHub-Api-Version":"2022-11-28"};
+    if(opt.body)h["Content-Type"]="application/json";
+    let r;
+    try{r=await fetch("https://api.github.com/repos/"+this.OWNER+"/"+this.REPO+path,{method:opt.method||"GET",headers:h,body:opt.body,cache:"no-store"});}
+    catch(e){throw new Error("Ingen kontakt med GitHub. Kontrollera internet.");}
+    if(!r.ok){
+      let m="";try{m=(await r.json()).message||"";}catch(_){}
+      const e=new Error(r.status===401?"GitHub-nyckeln godtogs inte. Skapa en ny och klistra in den.":
+        r.status===403||r.status===404?"Nyckeln saknar behörighet till TrebleEye (Contents och Actions: Read and write).":
+        "GitHub svarade "+r.status+(m?": "+m:""));
+      e.status=r.status;throw e;
+    }
+    return r.status===204?null:r.json();
+  },
+  async readVoices(){
+    const j=await this.api("/contents/voices.json?ref=main");
+    const bytes=Uint8Array.from(atob(j.content.replace(/\n/g,"")),c=>c.charCodeAt(0));
+    return {data:JSON.parse(new TextDecoder().decode(bytes)),sha:j.sha};
+  },
+  // read, change and write voices.json; retries if a voice job wrote it at the same time
+  async editVoices(fn,message){
+    for(let i=0;i<3;i++){
+      const {data,sha}=await this.readVoices();fn(data);
+      const txt=JSON.stringify(data,null,2)+"\n",u=new TextEncoder().encode(txt);let bin="";u.forEach(b=>bin+=String.fromCharCode(b));
+      try{await this.api("/contents/voices.json",{method:"PUT",body:JSON.stringify({message,content:btoa(bin),sha,branch:"main"})});return data;}
+      catch(e){if((e.status===409||e.status===422)&&i<2)continue;throw e;}
+    }
+  },
+  dispatch(inputs){return this.api("/actions/workflows/voice.yml/dispatches",{method:"POST",body:JSON.stringify({ref:"main",inputs})});},
+  runs(){return this.api("/actions/workflows/voice.yml/runs?per_page=5");}
+};
+
+const voiceAdmin=(function(){
+  let pollT=null;
+  const OPENAI_VOICES=["onyx","ash","echo","ballad","verse","fable","sage","alloy","coral","nova","shimmer"];
+  function msg(t,cls){const el=$("vaMsg");el.textContent=t;el.className="status"+(cls?" "+cls:"");el.hidden=!t;}
+  function setVoices(list){VOICES=list.filter(v=>v&&typeof v.id==="string"&&/^[a-z0-9-]+$/.test(v.id));store.set("dk_voices",VOICES);fillVoiceSelect();render();}
+  async function refresh(){
+    if(!gh.token){render();return;}
+    try{const {data}=await gh.readVoices();setVoices(data.voices||[]);}catch(e){msg(e.message,"e");}
+    runs();
+  }
+  async function change(id,fn,label){
+    msg(label+"…");
+    try{const d=await gh.editVoices(data=>{fn(data);},label);setVoices(d.voices);msg(label+". Ändringen syns för alla inom några minuter.");}
+    catch(e){msg(e.message,"e");}
+  }
+  function render(){
+    const connected=!!gh.token;
+    $("vaConnect").hidden=connected;$("vaTools").hidden=!connected;
+    const box=$("voiceList");box.innerHTML="";
+    VOICES.forEach(v=>{
+      const row=document.createElement("div");row.className="packrow";
+      const t=document.createElement("div");t.className="pk";
+      const badge=document.createElement("span");badge.className="badge "+v.status;badge.textContent=STATUS_TXT[v.status]||v.status;
+      const nm=document.createElement("b");nm.textContent=v.name;
+      const meta=document.createElement("span");meta.className="meta2";meta.textContent=(v.clips||0)+" klipp"+(v.takes>1?" ×"+v.takes:"")+(v.voice?" · "+v.voice:"");
+      t.append(nm," ",badge," ",meta);row.appendChild(t);
+      const play=document.createElement("button");play.textContent="Provlyssna";
+      play.onclick=async()=>{const n=Math.max(1,Math.min(3,v.takes|0||1));
+        try{for(const c of ["s180","r144","gameshot"])for(let k=1;k<=n;k++)await audio.playUrl("audio/"+v.id+"/"+(k>1?c+"_"+k:c)+".mp3");}catch(e){fx.flash("SAKNAS");}};
+      row.appendChild(play);
+      if(connected){
+        const pub=document.createElement("button");
+        if(v.status==="public"){pub.textContent="Dölj";pub.onclick=()=>{
+          if(VOICES.filter(x=>x.status==="public").length<=1){msg("Minst en röst måste vara publicerad.","w");return;}
+          change(v.id,d=>{d.voices.forEach(x=>{if(x.id===v.id)x.status="hidden";});},"Dolde "+v.name);};}
+        else{pub.textContent="Publicera";pub.className="pri";pub.disabled=(v.clips||0)<345;pub.title=pub.disabled?"Skapa alla klipp först":"";
+          pub.onclick=()=>change(v.id,d=>{d.voices.forEach(x=>{if(x.id===v.id)x.status="public";});},"Publicerade "+v.name);}
+        const del=document.createElement("button");del.className="dng";del.textContent="Ta bort";
+        del.onclick=()=>{
+          if(!del.dataset.sure){del.dataset.sure="1";del.textContent="Bekräfta";setTimeout(()=>{delete del.dataset.sure;del.textContent="Ta bort";},3000);return;}
+          if(v.status==="public"&&VOICES.filter(x=>x.status==="public").length<=1){msg("Minst en röst måste vara publicerad.","w");return;}
+          // removes the voice from the app; its sound files stay in the repository
+          change(v.id,d=>{d.voices=d.voices.filter(x=>x.id!==v.id);},"Tog bort "+v.name+" från appen");
+        };
+        row.append(pub,del);
+      }
+      box.appendChild(row);
+    });
+  }
+  async function runs(){
+    if(!gh.token||$("voiceAdmin").hidden)return;
+    try{
+      const j=await gh.runs(),box=$("vaRuns");box.innerHTML="";
+      (j.workflow_runs||[]).slice(0,5).forEach(r=>{
+        const d=document.createElement("div");d.className="runrow";
+        const st=r.status!=="completed"?"pågår":r.conclusion==="success"?"klart":"misslyckades";
+        const a=document.createElement("a");a.href=r.html_url;a.target="_blank";a.rel="noopener";a.textContent=r.display_title||r.name;
+        const s=document.createElement("span");s.className="badge "+(st==="klart"?"public":st==="pågår"?"preview":"fail");s.textContent=st;
+        const when=document.createElement("span");when.className="meta2";when.textContent=new Date(r.created_at).toLocaleTimeString("sv-SE",{hour:"2-digit",minute:"2-digit"});
+        d.append(s," ",a," ",when);box.appendChild(d);
+      });
+      const busy=(j.workflow_runs||[]).some(r=>r.status!=="completed");
+      if(runs.wasBusy&&!busy)refresh();   // a job just finished: reload the voice list
+      runs.wasBusy=busy;
+      clearTimeout(pollT);pollT=setTimeout(runs,busy?10000:30000);
+    }catch(e){}
+  }
+  async function connect(){
+    const t=($("vaToken").value||"").trim();if(!t){msg("Klistra in din GitHub-nyckel.","w");return;}
+    gh.token=t;msg("Kontrollerar nyckeln…");
+    try{await gh.api("");await gh.readVoices();msg("Ansluten till GitHub.");$("vaToken").value="";refresh();}
+    catch(e){gh.token="";msg(e.message,"e");render();}
+  }
+  function disconnect(){gh.token="";msg("Nyckeln är borttagen från den här enheten.");render();}
+  async function job(action){
+    const name=($("vaName").value||"").trim();if(!name){msg("Skriv ett namn på rösten.","w");return;}
+    const inputs={action,name,voice:$("vaVoice").value,tempo:$("vaTempo").value,takes:$("vaTakes").value,clips:($("vaClips").value||"").trim(),style:($("vaStyle").value||"").trim()};
+    msg("Startar jobbet…");
+    try{await gh.dispatch(inputs);msg((action==="provlyssna"?"Provklippen":"Alla klipp")+" för "+name+" skapas nu. Det tar "+(action==="provlyssna"?"2–3":"5–15")+" minuter. Listan uppdateras när jobbet är klart.");runs.wasBusy=true;setTimeout(runs,4000);}
+    catch(e){msg(e.message,"e");}
+  }
+  function open(){
+    const sel=$("vaVoice");if(!sel.options.length)OPENAI_VOICES.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;sel.appendChild(o);});
+    render();$("voiceAdmin").hidden=false;$("voiceAdmin").scrollIntoView({behavior:"smooth",block:"start"});refresh();
+  }
+  return {open,connect,disconnect,job,render,refresh};
+})();
+function renderVoiceAdmin(){voiceAdmin.render();}
+function openVoiceAdmin(){voiceAdmin.open();}
 
 /* ---------- Settings / wiring ---------- */
 function buildNames(){
@@ -1604,6 +1742,10 @@ $("selVoice").addEventListener("change",e=>{
   else caller.setLang(v);
 });
 $("voiceAdminClose").addEventListener("click",()=>{$("voiceAdmin").hidden=true;});
+$("vaConnectBtn").addEventListener("click",()=>voiceAdmin.connect());
+$("vaDisconnect").addEventListener("click",()=>voiceAdmin.disconnect());
+$("vaPreview").addEventListener("click",()=>voiceAdmin.job("provlyssna"));
+$("vaCreate").addEventListener("click",()=>voiceAdmin.job("skapa"));
 $("editCam").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
 $("editPick").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
 $("editDel").addEventListener("click",()=>{editPhoto=null;fillAv($("editAv"),$("editName").value,null);});

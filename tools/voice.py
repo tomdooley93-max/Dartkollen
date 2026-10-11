@@ -111,6 +111,11 @@ def slug(name):
     return s or "rost"
 
 
+def sync():
+    """Fetch voices.json changes the app may have made while a job was running."""
+    subprocess.run(["git", "pull", "--rebase", "--autostash", "-q"], cwd=ROOT, check=False)
+
+
 def load_voices():
     with open(VOICES_JSON) as f:
         return json.load(f)
@@ -189,6 +194,10 @@ def main():
 
     # count distinct clips (not takes) so "publicera" can check the voice is complete
     clips = len({re.sub(r"_\d$", "", f[:-4]) for f in os.listdir(out_dir) if f.endswith(".mp3")})
+    if os.environ.get("GITHUB_ACTIONS"):
+        sync()
+        data = load_voices()
+        entry = next((v for v in data["voices"] if v["id"] == vid), None)
     # new voices start as "preview" (only visible in admin mode); existing ones keep their status
     new = {"id": vid, "name": name, "status": (entry or {}).get("status", "preview"),
            "voice": voice, "style": style, "tempo": tempo, "takes": takes if action == "skapa" and not only else (entry or {}).get("takes", takes),

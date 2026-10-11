@@ -1,4 +1,5 @@
 name: Röst (OpenAI)
+run-name: "${{ inputs.action }}: ${{ inputs.name }}"
 
 # Creates and manages caller voices. Only people with write access to the repository can run it.
 # Needs the repository secret OPENAI_API_KEY (Settings > Secrets and variables > Actions).
@@ -81,6 +82,7 @@ jobs:
           git add audio voices.json
           if git diff --cached --quiet; then echo "Inga ändringar."; exit 0; fi
           git commit -m "Röst: $NAME ($ACTION)"
+          git pull --rebase -q || true
           git push
           # pushes made by this workflow may not start a Pages build on their own
           gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages-bygget startar av sig självt."
