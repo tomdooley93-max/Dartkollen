@@ -341,7 +341,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
       <div class="byline">by T.Henriksson</div>
-      <div class="meta"><span id="appVer">v2.9.0</span></div>
+      <div class="meta"><span id="appVer">v2.9.1</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -353,7 +353,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
         <button id="btnStats">Statistik</button>
         <button id="btnShareApp">Dela appen</button>
         <button class="help-tile" id="btnGuide">Så funkar appen</button>
-        <a class="tilelink help-tile" id="lnkVisits" href="https://darttavla1.goatcounter.com" target="_blank" rel="noopener" hidden>Besöksstatistik (admin)</a>
+        <a class="tilelink help-tile" id="lnkVisits" href="https://trebleeye.goatcounter.com" target="_blank" rel="noopener" hidden>Besöksstatistik (admin)</a>
       </div>
       <label class="label voice">Uppropare
         <select id="selVoice" aria-label="Uppropare">
@@ -394,7 +394,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
       <p class="help">Koppla appen till GitHub en gång, så kan du publicera, dölja, ta bort och skapa röster härifrån. Nyckeln sparas bara på den här enheten.</p>
       <div class="row"><input type="password" id="vaToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0" aria-label="GitHub-nyckel"><button class="pri" id="vaConnectBtn">Koppla</button></div>
     </div>
-    <p class="help"><a href="https://darttavla1.goatcounter.com" target="_blank" rel="noopener" style="color:#7fe0a0">Öppna besöksstatistiken (GoatCounter)</a></p>
+    <p class="help"><a href="https://trebleeye.goatcounter.com" target="_blank" rel="noopener" style="color:#7fe0a0">Öppna besöksstatistiken (GoatCounter)</a></p>
     <div class="label" style="margin-top:12px">Röster</div>
     <div id="voiceList"></div>
     <div id="vaTools" hidden>
@@ -706,7 +706,7 @@ const usage={
     const q="p="+encodeURIComponent(path)+"&t="+encodeURIComponent(title||path)+(event?"&e=true":"")+
       "&s="+encodeURIComponent(screen.width+","+screen.height+","+(window.devicePixelRatio||1))+
       (event?"":"&r="+encodeURIComponent(document.referrer||""))+"&rnd="+Math.random().toString(36).slice(2);
-    try{const img=new Image();img.referrerPolicy="no-referrer-when-downgrade";img.src="https://darttavla1.goatcounter.com/count?"+q;}catch(e){}
+    try{const img=new Image();img.referrerPolicy="no-referrer-when-downgrade";img.src="https://trebleeye.goatcounter.com/count?"+q;}catch(e){}
   },
   ev(name){this.send(name,name,true);},
   once:{},
