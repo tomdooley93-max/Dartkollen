@@ -98,6 +98,14 @@ html.tv #turnLabel{font-size:clamp(14px,1.3vw,22px)}
 html.tv .msg{font-size:clamp(18px,2vw,34px)}
 html.tv .chip{font-size:clamp(24px,2.8vw,52px);padding:4px 16px}
 html.tv #remoteVid{max-height:80vh;object-fit:contain}
+.place{margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.place ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.place li{padding-left:22px;position:relative}
+.place li::before{position:absolute;left:0;top:0;font-weight:700}
+.place li.ok::before{content:"✓";color:#7fe0a0}
+.place li.warn::before{content:"!";color:var(--warn)}
+.placesum{font-size:13px;font-weight:600}
+.placesum.ok{color:#7fe0a0}.placesum.warn{color:var(--warn)}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
 .stt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;margin-top:12px}
@@ -207,7 +215,7 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.2.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.3.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -405,6 +413,10 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
           <button id="btnReject">Avvisa</button>
           <div class="help" style="flex-basis:100%;margin:0">Fel ställe? Tryck på bilden där pilspetsen sitter.</div>
         </div>
+        <div class="place" id="placeBox" hidden>
+          <div class="row" style="justify-content:space-between"><div class="label">Placeringsguide</div><span class="placesum" id="placeSum"></span></div>
+          <ul id="placeList"></ul>
+        </div>
         <div class="ctl">
           <button class="pri" id="btnLive">Starta kamera</button>
           <select id="selLens" aria-label="Lins"><option value="">Lins: bästa automatiskt</option></select>
@@ -415,9 +427,10 @@ html.tv #remoteVid{max-height:80vh;object-fit:contain}
           <span class="filebtn"><button tabindex="-1" style="width:100%">Ta foto</button><input type="file" id="filePhoto" accept="image/*" capture="environment" aria-label="Ta foto"></span>
         </div>
         <div class="set">
-          <label>Kameran sitter
+          <label>Pilspets: kameran sitter
             <select id="selDir">
-              <option value="top" selected>Ovanför tavlan</option>
+              <option value="auto" selected>Automatiskt</option>
+              <option value="top">Ovanför tavlan</option>
               <option value="bottom">Nedanför tavlan</option>
               <option value="left">Till vänster</option>
               <option value="right">Till höger</option>
@@ -1182,7 +1195,7 @@ function setH(H,silent){
   cam.mask=new Uint8Array(n);cam.bx=new Float32Array(n);cam.by=new Float32Array(n);cam.maskN=0;
   for(let y=0;y<Ht;y++)for(let x=0;x<W;x++){
     const i=y*W+x,[bx,by]=ap(cam.Hi,x+.5,y+.5);cam.bx[i]=bx;cam.by[i]=by;
-    if(Math.hypot(bx,by)<178){cam.mask[i]=1;cam.maskN++;}
+    if(Math.hypot(bx,by)<225){cam.mask[i]=1;cam.maskN++;}   // whole board incl. number ring: flights often stick out past the doubles
   }
   if(cam.rgba)cam.base=boardScore(H);
   store.set(calKey(),{W,H:Ht,Hm:H,base:cam.base});
@@ -1267,7 +1280,7 @@ function autoCalibrate(silent){
   const edge=[[0,180],[180,0],[0,-180],[-180,0]].map(([x,y])=>ap(Hm,x,y));
   const clipped=edge.some(([x,y])=>x<0||y<0||x>W||y>H);
   const c0=ap(Hm,0,0),fill=2*edge.reduce((s,p)=>s+Math.hypot(p[0]-c0[0],p[1]-c0[1]),0)/4/Math.min(W,H);
-  setH(Hm);cam.base=score;store.set(calKey(),{W,H,Hm,base:score});
+  setH(Hm);cam.base=score;store.set(calKey(),{W,H,Hm,base:score});setTimeout(renderPlacement,50);
   cam.pts=[];
   if(!silent)status("Kalibrerad automatiskt ("+Math.round(score*100)+" % träff). Väntar på stilla bild för referens.");
   drawCam();
@@ -1405,8 +1418,10 @@ function onPhoto(file){
   const img=new Image();
   img.onload=()=>{
     if(cam.live)stopLive();
-    cam.src=img;$("ph").hidden=true;setSize(img.naturalWidth,img.naturalHeight);drawCam();
-    if(!cam.Hm){const r=autoCalibrate();if(!r.ok)return;}
+    cam.src=img;$("ph").hidden=true;setSize(img.naturalWidth,img.naturalHeight);drawCam();grab();renderPlacement();
+    // the phone may have moved since the last photo: recalibrate if the rings no longer line up
+    if(cam.Hm&&boardScore(cam.Hm)<Math.max(0.45,(cam.base||0)*0.6)){cam.Hm=null;cam.ref=null;cam.needRef=true;}
+    if(!cam.Hm){const r=autoCalibrate();renderPlacement();if(!r.ok)return;}
     const g=grab();
     if(!cam.ref||cam.needRef){takeRef(g);status("Referens tagen. Kasta och ta ett nytt foto från exakt samma position.");}
     else{const r=detect(g);if(r.err)status(r.err==="big"?"För stor skillnad mot förra fotot. Rörde sig telefonen?":r.err,"w");else propose(r,false);}
@@ -1433,18 +1448,31 @@ function setRefNow(){
   takeRef(grab());clearProp();status("Referens tagen. Kasta!");
 }
 function detect(cur){
-  const W=cam.W,H=cam.H,n=W*H,ref=cam.ref,thr=+$("rngThr").value;
+  const W=cam.W,H=cam.H,n=W*H,ref=cam.ref;
+  // never go below the measured camera noise, so grain and flicker are not taken for a dart
+  const thr=Math.max(+$("rngThr").value,Math.round((cam.noise||0)*3+6));
   const raw=new Uint8Array(n);
-  for(let i=0;i<n;i++)if(cam.mask[i]&&(Math.abs(cur[i]-ref[i])>thr||Math.abs(cur[n+i]-ref[n+i])*2>thr||Math.abs(cur[2*n+i]-ref[2*n+i])*2>thr))raw[i]=1;
+  for(let i=0;i<n;i++){
+    if(!cam.mask[i])continue;
+    const dg=cur[i]-ref[i],ag=dg<0?-dg:dg,d1=Math.abs(cur[n+i]-ref[n+i]),d2=Math.abs(cur[2*n+i]-ref[2*n+i]);
+    if(ag<=thr&&d1*2<=thr&&d2*2<=thr)continue;
+    // a shadow only darkens: same colour, moderate drop in brightness
+    if(dg<0&&ag<thr*3&&d1*3<thr&&d2*3<thr&&ref[i]>30&&cur[i]>ref[i]*0.5)continue;
+    raw[i]=1;
+  }
+  // drop isolated specks: keep pixels with at least two changed neighbours
+  const clean=new Uint8Array(n);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(!raw[i])continue;
+    if(raw[i-1]+raw[i+1]+raw[i-W]+raw[i+W]+raw[i-W-1]+raw[i-W+1]+raw[i+W-1]+raw[i+W+1]>=2)clean[i]=1;}
   // dilate 3x3 so a thin shaft stays connected to the flight
   const dil=new Uint8Array(n);
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;
-    if(raw[i]||raw[i-1]||raw[i+1]||raw[i-W]||raw[i+W]||raw[i-W-1]||raw[i-W+1]||raw[i+W-1]||raw[i+W+1])dil[i]=1;}
+    if(clean[i]||clean[i-1]||clean[i+1]||clean[i-W]||clean[i+W]||clean[i-W-1]||clean[i-W+1]||clean[i+W-1]||clean[i+W+1])dil[i]=1;}
   const seen=new Uint8Array(n);let best=null,total=0;
   for(let i=0;i<n;i++){
     if(!dil[i]||seen[i])continue;
     const comp=[],st=[i];seen[i]=1;
-    while(st.length){const k=st.pop();if(raw[k])comp.push(k);const x=k%W;
+    while(st.length){const k=st.pop();if(clean[k])comp.push(k);const x=k%W;
       if(x>0&&dil[k-1]&&!seen[k-1]){seen[k-1]=1;st.push(k-1);}
       if(x<W-1&&dil[k+1]&&!seen[k+1]){seen[k+1]=1;st.push(k+1);}
       if(k>=W&&dil[k-W]&&!seen[k-W]){seen[k-W]=1;st.push(k-W);}
@@ -1454,12 +1482,92 @@ function detect(cur){
   }
   if(!best||best.length<10)return {err:"Ingen pil hittades. Höj känsligheten eller mata in manuellt.",cur};
   if(total>cam.maskN*0.12)return {err:"big",cur};
-  const dir=$("selDir").value,bx=cam.bx,by=cam.by;
-  const key=dir==="top"?i=>by[i]:dir==="bottom"?i=>-by[i]:dir==="left"?i=>-bx[i]:i=>bx[i];
-  const top=best.slice().sort((a,b)=>key(b)-key(a)).slice(0,3);
-  const x=top.reduce((s,i)=>s+bx[i],0)/top.length,y=top.reduce((s,i)=>s+by[i],0)/top.length;
-  return {x,y,cur,blob:best};
+  const tip=findTip(best);
+  return {x:tip.x,y:tip.y,cur,blob:best,how:tip.how};
 }
+// The tip is the narrow end of the dart's outline (the flight is the wide end).
+// When the outline gives no clear answer, fall back to the camera position setting.
+function findTip(blob){
+  const W=cam.W,bx=cam.bx,by=cam.by,N=blob.length;
+  const avg=list=>({x:list.reduce((s,i)=>s+bx[i],0)/list.length,y:list.reduce((s,i)=>s+by[i],0)/list.length});
+  let mx=0,my=0;for(const i of blob){mx+=i%W;my+=(i/W)|0;}mx/=N;my/=N;
+  let sxx=0,syy=0,sxy=0;for(const i of blob){const dx=i%W-mx,dy=((i/W)|0)-my;sxx+=dx*dx;syy+=dy*dy;sxy+=dx*dy;}
+  const ang=0.5*Math.atan2(2*sxy,sxx-syy),ux=Math.cos(ang),uy=Math.sin(ang);
+  const h=(sxx+syy)/2,q=Math.sqrt(((sxx-syy)/2)**2+sxy*sxy),elong=Math.sqrt((h+q)/Math.max(h-q,1e-6));
+  const pr=blob.map(i=>{const dx=i%W-mx,dy=((i/W)|0)-my;return {i,t:dx*ux+dy*uy,w:-dx*uy+dy*ux};});
+  let tmin=Infinity,tmax=-Infinity;pr.forEach(o=>{if(o.t<tmin)tmin=o.t;if(o.t>tmax)tmax=o.t;});
+  const L=tmax-tmin,band=Math.max(2,L*0.22);
+  const spread=list=>{if(!list.length)return 0;let a=Infinity,b=-Infinity;list.forEach(o=>{if(o.w<a)a=o.w;if(o.w>b)b=o.w;});return b-a+1;};
+  const endA=pr.filter(o=>o.t<=tmin+band),endB=pr.filter(o=>o.t>=tmax-band);
+  const wA=spread(endA),wB=spread(endB),dir=$("selDir").value;
+  const endPt=(end,sign)=>avg(end.slice().sort((a,b)=>sign*(a.t-b.t)).slice(0,3).map(o=>o.i));
+  if(dir==="auto"&&elong>=1.8&&L>=8&&(wA<wB*0.8||wB<wA*0.8)){
+    let tipA=wA<wB;
+    const pa=endPt(endA,1),pb=endPt(endB,-1),ra=Math.hypot(pa.x,pa.y),rb=Math.hypot(pb.x,pb.y);
+    // a tip off the board while the other end is on it means the outline was cut: use the other end
+    if(tipA&&ra>172&&rb<=170)tipA=false;else if(!tipA&&rb>172&&ra<=170)tipA=true;
+    return Object.assign(tipA?pa:pb,{how:"form"});
+  }
+  const d=dir==="auto"?"top":dir;
+  const key=d==="top"?i=>by[i]:d==="bottom"?i=>-by[i]:d==="left"?i=>-bx[i]:i=>bx[i];
+  return Object.assign(avg(blob.slice().sort((a,b)=>key(b)-key(a)).slice(0,3)),{how:"läge"});
+}
+
+/* ---------- Placement guide: distance, angle, light and sharpness from the calibrated view ---------- */
+function placement(){
+  if(!cam.Hm||!cam.rgba)return null;
+  const W=cam.W,H=cam.H,ptsI=[];
+  for(let k=0;k<72;k++){const a=k/72*2*Math.PI;ptsI.push(ap(cam.Hm,170*Math.sin(a),170*Math.cos(a)));}
+  const clipped=ptsI.some(([x,y])=>x<2||y<2||x>W-2||y>H-2);
+  let mx=0,my=0;ptsI.forEach(([x,y])=>{mx+=x;my+=y;});mx/=72;my/=72;
+  let sxx=0,syy=0,sxy=0;ptsI.forEach(([x,y])=>{const dx=x-mx,dy=y-my;sxx+=dx*dx;syy+=dy*dy;sxy+=dx*dy;});sxx/=72;syy/=72;sxy/=72;
+  const h=(sxx+syy)/2,q=Math.sqrt(((sxx-syy)/2)**2+sxy*sxy),major=Math.sqrt(2*(h+q)),minor=Math.sqrt(Math.max(2*(h-q),0));
+  const tilt=Math.acos(Math.min(1,minor/Math.max(major,1e-6)))*180/Math.PI;
+  const majAng=0.5*Math.atan2(2*sxy,sxx-syy)*180/Math.PI;
+  const view=Math.abs(majAng)<45?"ovanifrån eller underifrån":"från sidan";
+  const fill=2*major/Math.min(W,H);
+  // light, contrast and sharpness inside the board
+  const d=cam.rgba;let sum=0,sum2=0,cnt=0,lap=0,lc=0;
+  const gy=i=>(d[i*4]*77+d[i*4+1]*150+d[i*4+2]*29)>>8;
+  for(let y=2;y<H-2;y+=3)for(let x=2;x<W-2;x+=3){const i=y*W+x;if(!cam.mask[i])continue;
+    const g=gy(i);sum+=g;sum2+=g*g;cnt++;
+    const l=4*g-gy(i-1)-gy(i+1)-gy(i-W)-gy(i+W);lap+=l*l;lc++;}
+  const light=cnt?sum/cnt:0,contrast=cnt?Math.sqrt(Math.max(0,sum2/cnt-light*light)):0,sharp=lc?lap/lc:0;
+  return {clipped,tilt,view,fill,light,contrast,sharp};
+}
+function renderPlacement(){
+  const box=$("placeBox");if(!box)return;
+  if(!cam.src){box.hidden=true;return;}
+  box.hidden=false;const list=$("placeList");list.innerHTML="";
+  const r=placement();
+  const add=(ok,txt)=>{const li=document.createElement("li");li.className=ok?"ok":"warn";li.textContent=txt;list.appendChild(li);};
+  if(!r){
+    // without calibration we can still judge the light in the whole picture
+    if(cam.rgba){const d=cam.rgba;let sm=0,c=0;for(let i=0;i<d.length;i+=64){sm+=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8;c++;}
+      const lt=sm/c;if(lt<60)add(false,"Bilden är för mörk för att hitta tavlan. Tänd mer ljus mot tavlan.");else if(lt>220)add(false,"Bilden är för ljus. Minska ljuset eller undvik motljus.");}
+    add(false,"Kalibrera tavlan, så kan guiden mäta avstånd och vinkel.");$("placeSum").textContent="";return;}
+  const items=[];
+  if(r.clipped)items.push([false,"Delar av tavlan hamnar utanför bilden. Flytta kameran längre bort eller rikta om den."]);
+  else items.push([true,"Hela tavlan syns."]);
+  if(r.fill<0.45)items.push([false,"För långt bort. Flytta närmare så att tavlan fyller ungefär två tredjedelar av bilden."]);
+  else if(r.fill>0.92)items.push([false,"För nära. Flytta kameran en bit bakåt."]);
+  else items.push([true,"Bra avstånd (tavlan fyller "+Math.round(Math.min(r.fill,1)*100)+" % av bilden)."]);
+  const deg=Math.round(r.tilt);
+  if(r.tilt<15)items.push([false,"Kameran står nästan rakt framför tavlan ("+deg+"°). Flytta den ungefär 30° åt sidan eller uppåt så att pilarna syns i profil."]);
+  else if(r.tilt>55)items.push([false,"För snett ("+deg+"°). Flytta kameran mer framför tavlan."]);
+  else items.push([true,"Bra vinkel, ca "+deg+"° "+r.view+"."]);
+  if(r.light<70)items.push([false,"För mörkt. Tänd mer ljus mot tavlan."]);
+  else if(r.light>215)items.push([false,"För ljust. Minska ljuset eller undvik direkt ljus i kameran."]);
+  else if(r.contrast<25)items.push([false,"Låg kontrast. Prova bättre belysning rakt framifrån."]);
+  else items.push([true,"Bra ljus."]);
+  if(r.sharp<30)items.push([false,"Bilden ser suddig ut. Torka av linsen och se till att kameran står stilla."]);
+  else items.push([true,"Skarp bild."]);
+  items.forEach(([ok,t])=>add(ok,t));
+  const bad=items.filter(x=>!x[0]).length;
+  $("placeSum").textContent=bad?bad+" sak"+(bad>1?"er":"")+" att justera":"Placeringen ser bra ut";
+  $("placeSum").className="placesum "+(bad?"warn":"ok");
+}
+
 function detectNow(){
   if(!cam.src){status("Starta kameran eller ta ett foto först.","w");return;}
   if(!cam.Hm){status("Kalibrera först.","w");return;}
@@ -1490,14 +1598,26 @@ function accept(){
 function reject(){clearProp();status("Förslaget avvisat. Kasta igen eller mata in manuellt.");drawCam();}
 
 /* Automatic flow: motion -> still -> reference / detection / turn change */
+// average of the last still frames: less sensor noise in references and detections
+function steady(g){
+  const b=cam.still||[];if(b.length<2)return g;
+  const n=g.length,o=new Uint8Array(n),k=b.length;
+  for(let i=0;i<n;i++){let s=0;for(let j=0;j<k;j++)s+=b[j][i];o[i]=(s/k+0.5)|0;}
+  return o;
+}
 function autoTick(t){
   const g=grab();if(!g)return;
   if(cam.lastGray){
-    const thr=+$("rngThr").value;let c=0;
-    for(let i=0;i<cam.W*cam.H;i+=2)if(cam.mask[i]&&Math.abs(g[i]-cam.lastGray[i])>thr)c++;
-    if(c>15){cam.moving=true;cam.lastMove=t;}
-    else if(t-cam.lastMove>800){
-      if(cam.moving||cam.dirty||cam.needRef||!cam.ref){cam.moving=false;cam.dirty=false;onSettled(g,t);}
+    const thr=+$("rngThr").value;let c=0,nd=[];
+    for(let i=0;i<cam.W*cam.H;i+=2)if(cam.mask[i]){const dd=Math.abs(g[i]-cam.lastGray[i]);if(dd>thr)c++;if((i&62)===0)nd.push(dd);}
+    if(c>15){cam.moving=true;cam.lastMove=t;cam.still=[];}
+    else{
+      cam.still=(cam.still||[]).concat([g]).slice(-3);
+      if(nd.length){nd.sort((a,b)=>a-b);const med=nd[nd.length>>1];cam.noise=cam.noise==null?med:cam.noise*0.9+med*0.1;}
+    }
+    if(t-(cam.lastPlace||0)>1500){cam.lastPlace=t;renderPlacement();}
+    if(c<=15&&t-cam.lastMove>800){
+      if(cam.moving||cam.dirty||cam.needRef||!cam.ref){cam.moving=false;cam.dirty=false;onSettled(steady(g),t);}
       else if(t-cam.lastCheck>4000){cam.lastCheck=t;driftCheck();}
     }
   }
