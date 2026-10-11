@@ -39,7 +39,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 button:disabled{opacity:.45;cursor:not-allowed}
 button.pri{background:var(--grn);border-color:var(--grn);color:#fff;font-weight:600}
 button.dng{background:transparent;border-color:var(--red);color:var(--red)}
-select,input[type=text],input[type=number]{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+select,input[type=text],input[type=password],input[type=number]{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px;align-items:start}
 @media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -83,6 +83,14 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
 .flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);z-index:20;pointer-events:none;opacity:0;font-family:var(--f-num);font-weight:700;font-size:clamp(44px,16vw,96px);max-width:calc(100vw - 32px);box-sizing:border-box;line-height:1;color:var(--chalk);background:rgba(17,23,20,.88);border:2px solid var(--line);border-radius:18px;padding:14px clamp(14px,4vw,34px);white-space:nowrap}
 .flash.big{color:var(--warn);border-color:var(--warn)}
 .flash.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.gen{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.gen label.label{display:flex;flex-direction:column;gap:6px}
+.gen label.ck{display:flex;align-items:center;gap:8px;font-size:14px}
+#genStyle{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font:inherit;font-size:14px;resize:vertical;width:100%;box-sizing:border-box}
+.genprog{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden}
+#genBar{height:100%;width:0;background:linear-gradient(90deg,var(--grn),#7fe0a0);transition:width .3s}
+.packrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.packrow .pk{flex:1;min-width:160px;font-size:14px}
 .chipbtn{font-size:13px;padding:6px 10px;border-color:var(--warn);color:var(--warn)}
 .chipbtn.live{border-color:var(--grn);color:#7fe0a0}
 #sessCode{width:96px;text-transform:uppercase;font-family:var(--f-num);font-size:22px;letter-spacing:.18em;text-align:center}
@@ -166,7 +174,7 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.5.1</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.6.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -177,6 +185,7 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
         <option value="en">Röst: telefonens engelska</option>
         <option value="sv">Röst: telefonens svenska</option>
         <option value="off">Ljud av</option>
+        <option value="gen">Skapa egen röst (OpenAI)…</option>
       </select>
       <button class="chipbtn" id="sessChip" hidden></button>
       <button id="btnSess">Starta session</button>
@@ -203,6 +212,35 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
     <div class="row" style="margin-top:14px">
       <button class="pri" id="editSave">Spara</button>
       <button id="editCancel">Avbryt</button>
+    </div>
+  </section>
+
+  <section id="genPanel" class="panel" hidden style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div class="label">Skapa egen uppropare med OpenAI</div>
+      <button id="genClose">Stäng</button>
+    </div>
+    <p class="help">Telefonen skapar alla utrop (cirka 345 korta klipp) direkt hos OpenAI med din egen API-nyckel. Det kostar ungefär 1–3 kronor och tar några minuter. Rösten sparas på den här enheten.</p>
+    <div class="gen">
+      <label class="label">OpenAI API-nyckel
+        <span class="row"><input type="password" id="genKey" autocomplete="off" spellcheck="false" placeholder="sk-…" style="flex:1;min-width:0"><button id="genShowKey" type="button">Visa</button></span>
+      </label>
+      <label class="ck"><input type="checkbox" id="genRemember"> Kom ihåg nyckeln på den här enheten</label>
+      <div class="set" style="margin-top:0">
+        <label class="label">Röst <select id="genVoice"></select></label>
+        <label class="label">Namn på rösten <input type="text" id="genName" maxlength="24" value="Min uppropare"></label>
+      </div>
+      <label class="label">Stil (instruktion till rösten, på engelska)
+        <textarea id="genStyle" rows="3"></textarea>
+      </label>
+      <div class="row">
+        <button id="genPreview">Provlyssna</button>
+        <button class="pri" id="genGo">Generera alla klipp</button>
+      </div>
+      <div class="genprog"><div id="genBar"></div></div>
+      <div class="status" id="genMsg" hidden></div>
+      <div class="label" style="margin-top:6px">Egna röster</div>
+      <div id="genPacks"></div>
     </div>
   </section>
 
@@ -519,7 +557,8 @@ function coLine(p,i){
 
 /* ---------- Sound: recorded caller clips + synth effects ---------- */
 const audio=(function(){
-  let ac=null,endAt=0;const buf={};let BASE="audio/"+(store.get("dk_caller")||"george")+"/";
+  let ac=null,endAt=0;const buf={};let VOICE=store.get("dk_caller")||"george";
+  const isCustom=()=>VOICE.startsWith("custom:");
   function ctx(){
     if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ac=new C();}
     if(ac.state==="suspended")ac.resume().catch(()=>{});
@@ -532,10 +571,19 @@ const audio=(function(){
     const s=a.createBufferSource();s.buffer=a.createBuffer(1,1,22050);s.connect(a.destination);s.start(0);
   },{passive:true});
   async function load(name){
-    if(buf[name])return buf[name];
-    const r=await fetch(BASE+name+".mp3");if(!r.ok)throw new Error("missing");
-    const ab=await r.arrayBuffer(),a=ctx();
-    return buf[name]=await new Promise((res,rej)=>a.decodeAudioData(ab,res,rej));
+    const k=VOICE+"/"+name;if(buf[k])return buf[k];
+    let ab;
+    if(isCustom()){const b=await idb.get(VOICE.slice(7)+"/"+name);if(!b)throw new Error("missing");ab=await b.arrayBuffer();}
+    else{const r=await fetch("audio/"+VOICE+"/"+name+".mp3");if(!r.ok)throw new Error("missing");ab=await r.arrayBuffer();}
+    const a=ctx();
+    return buf[k]=await new Promise((res,rej)=>a.decodeAudioData(ab,res,rej));
+  }
+  // play a blob right away (voice generator preview); resolves when it has finished
+  async function playBlob(blob){
+    const a=ctx();if(!a)return;const ab=await blob.arrayBuffer();
+    const b=await new Promise((res,rej)=>a.decodeAudioData(ab,res,rej)),s=a.createBufferSource();s.buffer=b;s.connect(a.destination);
+    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.12;
+    await sleep((endAt-a.currentTime)*1000);
   }
   async function clip(name){
     const a=ctx();if(!a)throw new Error("no audio");
@@ -571,12 +619,12 @@ const audio=(function(){
   }
   // fill the offline cache in the background once the app is idle
   function prefetch(names){
-    if(location.protocol!=="https:")return;let i=0;
-    const next=()=>{if(i>=names.length)return;fetch(BASE+names[i++]+".mp3").catch(()=>{}).finally(()=>setTimeout(next,60));};
+    if(location.protocol!=="https:"||isCustom())return;let i=0;const base="audio/"+VOICE+"/";
+    const next=()=>{if(i>=names.length)return;fetch(base+names[i++]+".mp3").catch(()=>{}).finally(()=>setTimeout(next,60));};
     setTimeout(next,4000);
   }
-  function setVoice(v){BASE="audio/"+v+"/";for(const k in buf)delete buf[k];store.set("dk_caller",v);}
-  return {clip,sfx,prefetch,setVoice,get voice(){return BASE.split("/")[1];}};
+  function setVoice(v){VOICE=v;for(const k in buf)delete buf[k];store.set("dk_caller",v);}
+  return {clip,sfx,prefetch,setVoice,playBlob,get voice(){return VOICE;}};
 })();
 
 /* ---------- Full-screen effects (canvas) ---------- */
@@ -1485,6 +1533,172 @@ const sess=(function(){
     get role(){return role;},get undoN(){return undoN;},get available(){return ok();}};
 })();
 
+/* ---------- Voice packs stored on this device (IndexedDB) ---------- */
+const idb=(function(){
+  let dbp=null;
+  function db(){return dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open("trebleeye",1);r.onupgradeneeded=()=>r.result.createObjectStore("clips");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));}
+  async function run(mode,fn){const d=await db();return new Promise((res,rej)=>{const t=d.transaction("clips",mode),req=fn(t.objectStore("clips"));t.oncomplete=()=>res(req?req.result:undefined);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});}
+  const range=p=>IDBKeyRange.bound(p,p+"￿");
+  return {
+    get:k=>run("readonly",s=>s.get(k)),
+    put:(k,v)=>run("readwrite",s=>s.put(v,k)),
+    keys:p=>run("readonly",s=>s.getAllKeys(range(p))),
+    delPrefix:p=>run("readwrite",s=>s.delete(range(p)))
+  };
+})();
+const packs={
+  list(){return store.get("dk_packs")||[];},
+  save(l){store.set("dk_packs",l);},
+  upsert(p){const l=packs.list().filter(x=>x.id!==p.id);l.push(p);packs.save(l);},
+  remove(id){packs.save(packs.list().filter(x=>x.id!==id));}
+};
+
+/* ---------- Voice generator (OpenAI text-to-speech, runs on this device with the user's key) ---------- */
+const voiceGen=(function(){
+  const VOICES=["ash","onyx","echo","ballad","verse","fable","sage","alloy","coral","nova","shimmer"];
+  const BASE_STYLE="You are the MC at a packed professional darts arena. British accent, deep, confident and theatrical. Say exactly the words given and nothing else.";
+  const ONES=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+  const TENS=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+  const en=n=>n<20?ONES[n]:n<100?TENS[Math.floor(n/10)]+(n%10?"-"+ONES[n%10]:""):ONES[Math.floor(n/100)]+" hundred"+(n%100?" and "+en(n%100):"");
+  function clip(name){
+    if(name==="gameon")return {text:"Game on!",hint:"Energetic and rallying, the start of the match."};
+    if(name==="gameshot")return {text:"Game shot, and the leg!",hint:"Triumphant, loud and celebratory, stretch 'Game shot'."};
+    if(name==="s0")return {text:"No score.",hint:"Flat and a little dry."};
+    if(name==="s180")return {text:"One hundred... and eightyyy!",hint:"Maximum hype, the biggest moment of the night. A long, rising 'One hundred', a short pause, then a huge, drawn-out 'and eighty'."};
+    const n=+name.slice(1);
+    if(name[0]==="r")return {text:"You require, "+en(n)+".",hint:"Clear and measured with a little tension, announcing what the player needs to win."};
+    const hint=n>=140?"Very loud and excited, stretch the vowels of the number.":n>=100?"Loud and enthusiastic, stretch the number out.":n>=60?"Firm and punchy.":"Calm, clear call.";
+    return {text:en(n)+(n>=100?"!":"."),hint};
+  }
+  let running=false,stopReq=false;
+  async function tts(key,voice,style,name){
+    const c=clip(name);
+    for(let attempt=0;;attempt++){
+      let r;
+      try{
+        r=await fetch("https://api.openai.com/v1/audio/speech",{method:"POST",
+          headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+          body:JSON.stringify({model:"gpt-4o-mini-tts",voice,input:c.text,instructions:style+" "+c.hint,response_format:"mp3"})});
+      }catch(e){if(attempt<4){await sleep(1500*(attempt+1));continue;}throw new Error("Ingen kontakt med OpenAI. Kontrollera internet.");}
+      if(r.ok)return await r.blob();
+      let m="";try{m=(await r.json()).error.message||"";}catch(_){}
+      if(r.status===401)throw Object.assign(new Error("API-nyckeln godtogs inte. Kontrollera att du klistrat in hela nyckeln."),{fatal:true});
+      if(r.status===429&&/quota|billing/i.test(m))throw Object.assign(new Error("Kontot saknar kredit. Lägg in betalning på platform.openai.com."),{fatal:true});
+      if((r.status===429||r.status>=500)&&attempt<5){await sleep(2000*Math.pow(2,attempt));continue;}
+      throw new Error("OpenAI svarade "+r.status+(m?": "+m:""));
+    }
+  }
+  function key(){return ($("genKey").value||"").trim();}
+  function msg(t,cls){const el=$("genMsg");el.textContent=t;el.className="status"+(cls?" "+cls:"");el.hidden=!t;}
+  async function preview(){
+    const k=key();if(!k){msg("Klistra in din API-nyckel först.","w");return;}
+    msg("Genererar provljud…");
+    try{
+      const v=$("genVoice").value,st=$("genStyle").value;
+      for(const n of ["s180","r144","gameshot"]){const b=await tts(k,v,st,n);await audio.playBlob(b);}
+      msg("Provljud uppspelat. Gillar du det? Tryck Generera alla.");
+    }catch(e){msg(e.message,"e");}
+  }
+  async function generate(){
+    if(running){stopReq=true;return;}
+    const k=key();if(!k){msg("Klistra in din API-nyckel först.","w");return;}
+    if($("genRemember").checked)store.set("dk_oaikey",k);else store.set("dk_oaikey",null);
+    const voice=$("genVoice").value,style=$("genStyle").value,name=($("genName").value||"").trim()||"Min uppropare";
+    const id=(store.get("dk_genId")&&store.get("dk_genId").name===name&&store.get("dk_genId").voice===voice)?store.get("dk_genId").id:"p"+Date.now().toString(36);
+    store.set("dk_genId",{id,name,voice});
+    const names=caller.clipNames(),done=new Set((await idb.keys(id+"/")).map(k=>k.slice(id.length+1)));
+    const todo=names.filter(n=>!done.has(n));
+    running=true;stopReq=false;$("genGo").textContent="Avbryt";
+    let ok=done.size,fatal=null;const total=names.length;
+    const bar=$("genBar"),upd=()=>{bar.style.width=(ok/total*100).toFixed(1)+"%";msg("Genererar "+ok+" av "+total+" klipp…");};
+    upd();
+    let i=0;
+    async function worker(){
+      while(i<todo.length&&!stopReq&&!fatal){
+        const n=todo[i++];
+        try{const b=await tts(k,voice,style,n);await idb.put(id+"/"+n,b);ok++;upd();}
+        catch(e){if(e.fatal){fatal=e;stopReq=true;}else{fatal=fatal||e;}}
+      }
+    }
+    await Promise.all([worker(),worker(),worker(),worker()]);
+    running=false;$("genGo").textContent="Generera alla klipp";
+    if(ok>0)packs.upsert({id,name,voice,count:ok,total,date:new Date().toISOString().slice(0,10),style});
+    fillVoiceSelect();renderPacks();
+    if(ok>=total){store.set("dk_genId",null);msg("Klart! "+name+" finns nu i röstmenyn.");}
+    else if(fatal)msg(fatal.message+" ("+ok+" av "+total+" klara. Tryck Generera igen för att fortsätta.)","e");
+    else msg("Avbrutet vid "+ok+" av "+total+". Tryck Generera igen för att fortsätta där du slutade.","w");
+  }
+
+  /* export as zip (stored, no compression) */
+  function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++){c^=u[i];for(let k=0;k<8;k++)c=c&1?(c>>>1)^0xEDB88320:c>>>1;}return (c^0xFFFFFFFF)>>>0;}
+  function zip(files){
+    const te=new TextEncoder(),parts=[],cent=[];let off=0;
+    for(const f of files){
+      const nm=te.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+      const h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(12,0x21,true);h.setUint32(14,crc,true);h.setUint32(18,sz,true);h.setUint32(22,sz,true);h.setUint16(26,nm.length,true);
+      parts.push(h,nm,f.data);
+      const c=new DataView(new ArrayBuffer(46));
+      c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(14,0x21,true);c.setUint32(16,crc,true);c.setUint32(20,sz,true);c.setUint32(24,sz,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+      cent.push(c,nm);off+=30+nm.length+sz;
+    }
+    const cs=cent.reduce((s,p)=>s+p.byteLength,0),e=new DataView(new ArrayBuffer(22));
+    e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+    return new Blob([...parts,...cent,e],{type:"application/zip"});
+  }
+  async function exportPack(id){
+    const p=packs.list().find(x=>x.id===id);if(!p)return;
+    msg("Packar ihop rösten…");
+    const ks=await idb.keys(id+"/"),files=[];
+    for(const k of ks){const b=await idb.get(k);files.push({name:k.slice(id.length+1)+".mp3",data:new Uint8Array(await b.arrayBuffer())});}
+    files.push({name:"voice.json",data:new TextEncoder().encode(JSON.stringify({name:p.name,voice:p.voice,style:p.style,model:"gpt-4o-mini-tts",date:p.date},null,2))});
+    const fname="trebleeye-"+p.name.toLowerCase().replace(/[^a-z0-9]+/g,"-")+".zip",blob=zip(files),file=new File([blob],fname,{type:"application/zip"});
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"TrebleEye-röst: "+p.name});msg("");return;}
+    }catch(e){if(e.name==="AbortError"){msg("");return;}}
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);msg("Zip-filen ("+(blob.size/1048576).toFixed(1)+" MB) har sparats.");
+  }
+  async function removePack(id){
+    await idb.delPrefix(id+"/");packs.remove(id);
+    if(audio.voice==="custom:"+id){audio.setVoice("george");}
+    fillVoiceSelect();renderPacks();
+  }
+  function renderPacks(){
+    const box=$("genPacks");box.innerHTML="";
+    const l=packs.list();
+    if(!l.length){box.innerHTML='<div class="help">Inga egna röster än.</div>';return;}
+    l.forEach(p=>{
+      const row=document.createElement("div");row.className="packrow";
+      const t=document.createElement("div");t.className="pk";
+      t.textContent=p.name+" · "+p.voice+" · "+p.count+"/"+p.total+" klipp";
+      const use=document.createElement("button");use.textContent="Använd";use.disabled=p.count<p.total;
+      use.onclick=()=>{audio.setVoice("custom:"+p.id);caller.setLang("pro");fillVoiceSelect();audio.clip("s180").catch(()=>{});};
+      const ex=document.createElement("button");ex.textContent="Exportera";ex.onclick=()=>exportPack(p.id);
+      const del=document.createElement("button");del.className="dng";del.textContent="Ta bort";
+      del.onclick=()=>{if(del.dataset.sure){removePack(p.id);}else{del.dataset.sure="1";del.textContent="Bekräfta";setTimeout(()=>{delete del.dataset.sure;del.textContent="Ta bort";},3000);}};
+      row.append(t,use,ex,del);box.appendChild(row);
+    });
+  }
+  function open(){
+    const sel=$("genVoice");if(!sel.options.length)VOICES.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;sel.appendChild(o);});
+    if(!$("genStyle").value)$("genStyle").value=BASE_STYLE;
+    const k=store.get("dk_oaikey");if(k&&!$("genKey").value){$("genKey").value=k;$("genRemember").checked=true;}
+    renderPacks();$("genPanel").hidden=false;$("genPanel").scrollIntoView({behavior:"smooth",block:"start"});
+  }
+  return {open,preview,generate,renderPacks};
+})();
+
+function fillVoiceSelect(){
+  const sel=$("selVoice"),cur=caller.lang==="pro"?"pro:"+audio.voice:caller.lang;
+  sel.querySelectorAll("option[data-custom]").forEach(o=>o.remove());
+  const genOpt=sel.querySelector('option[value="gen"]');
+  packs.list().filter(p=>p.count>=p.total).forEach(p=>{
+    const o=document.createElement("option");o.value="pro:custom:"+p.id;o.textContent="Röst: "+p.name+" (egen)";o.dataset.custom="1";sel.insertBefore(o,genOpt);
+  });
+  sel.value=cur;if(sel.value!==cur)sel.value="pro:george";
+}
+
 /* ---------- Settings / wiring ---------- */
 function buildNames(){
   const n=+$("selN").value,box=$("names"),old=[...box.querySelectorAll("input")].map(i=>i.value);
@@ -1500,12 +1714,17 @@ function buildNames(){
 $("btnSettings").addEventListener("click",()=>{buildNames();$("settings").hidden=false;});
 $("btnCancel").addEventListener("click",()=>{$("settings").hidden=true;});
 $("selN").addEventListener("change",buildNames);
-$("selVoice").value=caller.lang==="pro"?"pro:"+audio.voice:caller.lang;
+fillVoiceSelect();
 $("selVoice").addEventListener("change",e=>{
   const v=e.target.value;
+  if(v==="gen"){fillVoiceSelect();voiceGen.open();return;}
   if(v.startsWith("pro:")){audio.setVoice(v.slice(4));caller.setLang("pro");audio.clip("s180").catch(()=>{});audio.prefetch(caller.clipNames());}
   else caller.setLang(v);
 });
+$("genClose").addEventListener("click",()=>{$("genPanel").hidden=true;});
+$("genPreview").addEventListener("click",()=>voiceGen.preview());
+$("genGo").addEventListener("click",()=>voiceGen.generate());
+$("genShowKey").addEventListener("click",()=>{const k=$("genKey");k.type=k.type==="password"?"text":"password";});
 $("editCam").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
 $("editPick").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
 $("editDel").addEventListener("click",()=>{editPhoto=null;fillAv($("editAv"),$("editName").value,null);});
