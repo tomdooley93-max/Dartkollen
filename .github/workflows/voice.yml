@@ -1,0 +1,68 @@
+name: Röst (OpenAI)
+
+# Creates and manages caller voices. Only people with write access to the repository can run it.
+# Needs the repository secret OPENAI_API_KEY (Settings > Secrets and variables > Actions).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Vad ska göras? provlyssna = 3 provklipp, skapa = alla klipp, publicera = synlig för alla, dolj = gömd"
+        type: choice
+        options: [provlyssna, skapa, publicera, dolj]
+        default: provlyssna
+      name:
+        description: "Namn på rösten (t.ex. Big Mike)"
+        required: true
+        type: string
+      voice:
+        description: "OpenAI-röst"
+        type: choice
+        options: [onyx, ash, echo, ballad, verse, fable, sage, alloy, coral, nova, shimmer]
+        default: onyx
+      style:
+        description: "Stil på engelska (lämna tomt för standardstilen)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: voices
+  cancel-in-progress: false
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Generate or update voice
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ACTION: ${{ inputs.action }}
+          NAME: ${{ inputs.name }}
+          VOICE: ${{ inputs.voice }}
+          STYLE: ${{ inputs.style }}
+        run: python3 tools/voice.py
+
+      - name: Commit and publish
+        env:
+          NAME: ${{ inputs.name }}
+          ACTION: ${{ inputs.action }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio voices.json
+          if git diff --cached --quiet; then echo "Inga ändringar."; exit 0; fi
+          git commit -m "Röst: $NAME ($ACTION)"
+          git push
+          # pushes made by this workflow may not start a Pages build on their own
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null || echo "Pages-bygget startar av sig självt."

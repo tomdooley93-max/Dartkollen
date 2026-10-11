@@ -1,0 +1,8 @@
+{
+  "voices": [
+    {"id": "george", "name": "George", "status": "public", "clips": 345},
+    {"id": "lewis", "name": "Lewis", "status": "public", "clips": 345},
+    {"id": "daniel", "name": "Daniel", "status": "public", "clips": 345},
+    {"id": "fable", "name": "Fable", "status": "public", "clips": 345}
+  ]
+}

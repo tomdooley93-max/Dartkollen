@@ -1,5 +1,5 @@
 // Bump VERSION on every release so installed apps pick up the update.
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 const CACHE = "trebleeye-" + VERSION;
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./lib/peerjs.min.js", "./lib/qrcode.js", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png"];
 
@@ -20,6 +20,12 @@ self.addEventListener("fetch", e => {
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put("./index.html", copy)); return r; })
       .catch(() => caches.match("./index.html")));
+    return;
+  }
+  // Voice list: always ask the network first so new voices show up
+  if (url.origin === location.origin && url.pathname.endsWith("/voices.json")) {
+    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return r; })
+      .catch(() => caches.match(req)));
     return;
   }
   // Own files and Google Fonts: cache first, fill cache on the way
