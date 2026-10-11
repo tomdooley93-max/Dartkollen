@@ -91,8 +91,6 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
 .runrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
 .runrow a{color:var(--fg)}
 #vaStyle{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font:inherit;font-size:14px;width:100%;box-sizing:border-box}
-.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
-.steps a{color:#7fe0a0}
 .packrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .packrow .pk{flex:1;min-width:160px;font-size:14px}
 .chipbtn{font-size:13px;padding:6px 10px;border-color:var(--warn);color:var(--warn)}
@@ -178,7 +176,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.3</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.4</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -1805,6 +1803,8 @@ autoStart();
 sess.boot();
 if(caller.lang==="pro")audio.prefetch(caller.clipNames());
 loadVoices();
+// remove data left behind by the old on-device voice generator
+try{["dk_oaikey","dk_genId","dk_packs"].forEach(k=>localStorage.removeItem(k));if(window.indexedDB)indexedDB.deleteDatabase("trebleeye");}catch(e){}
 
 /* ---------- Installed app: service worker + updates ---------- */
 if("serviceWorker" in navigator&&location.protocol==="https:"&&!/claude\.ai|claudeusercontent/.test(location.hostname)){

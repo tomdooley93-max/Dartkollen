@@ -1,0 +1,1809 @@
+<title>TrebleEye</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: scoreboard + current turn on the left, input (board/pad or camera) on the right; stacks on phones. Single dark "pub scoreboard" look by choice. */
+:root{
+  --bg:#111714; --panel:#19221e; --panel2:#202b26; --line:#2e3b35;
+  --fg:#efe7d3; --mut:#9aa89f; --red:#d4433b; --grn:#3f9160; --chalk:#f5ecd5; --warn:#e2a93b;
+  --f-num:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:16px 40px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-family:var(--f-num);font-weight:700;font-size:30px;letter-spacing:.02em;margin:0}
+h1 span{color:var(--red)}
+.meta{color:var(--mut);font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,select,input{font:inherit;color:var(--fg)}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--mut)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.pri{background:var(--grn);border-color:var(--grn);color:#fff;font-weight:600}
+button.dng{background:transparent;border-color:var(--red);color:var(--red)}
+select,input[type=text],input[type=password],input[type=number]{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+
+/* Scoreboard */
+.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.pl{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative}
+.pl.on{border-color:var(--grn);box-shadow:inset 0 0 0 1px var(--grn)}
+.pl.won{border-color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn)}
+.pl .nm{font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pl{cursor:pointer}
+.pl:hover{border-color:var(--mut)}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{flex:none;width:36px;height:36px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--f-num);font-weight:700;font-size:16px;color:var(--chalk);overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av.lg{width:96px;height:96px;font-size:38px}
+.edit{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.edit .f{display:flex;flex-direction:column;gap:10px;flex:1;min-width:200px}
+.pl .sc{font-family:var(--f-num);font-weight:700;font-size:64px;line-height:1;margin:6px 0 4px;font-variant-numeric:tabular-nums;color:var(--chalk)}
+.pl .st{font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums;display:flex;gap:12px;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--grn);display:inline-block}
+
+/* Turn */
+.turn{margin-top:16px}
+.slots{display:grid;grid-template-columns:repeat(3,1fr) 1.1fr;gap:8px;margin:10px 0}
+.slot{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;height:62px;display:flex;align-items:center;justify-content:center;font-family:var(--f-num);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
+.slot.f{border-style:solid;border-color:var(--mut)}
+.slot.sum{border:none;background:transparent;flex-direction:column;font-size:30px;color:var(--chalk)}
+.slot.sum small{font-family:var(--f-body);font-size:11px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}
+.msg{min-height:24px;font-weight:600}
+.msg.bust{color:var(--red)} .msg.win{color:var(--warn)} .msg.co{color:var(--mut);font-weight:500}
+.msg.co{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.chip{font-family:var(--f-num);font-weight:700;font-size:20px;letter-spacing:.03em;color:var(--chalk);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 10px}
+.chip.d{border-color:var(--red)}
+.chip.nx{background:var(--chalk);color:var(--bg);border-color:var(--chalk)}
+.pl .co{display:flex;gap:4px;margin-top:8px;font-family:var(--f-num);font-weight:600;font-size:15px;letter-spacing:.03em}
+.pl .co span{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--chalk)}
+.pl .co.none{color:var(--mut);font-size:13px;font-weight:500}
+.flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);z-index:20;pointer-events:none;opacity:0;font-family:var(--f-num);font-weight:700;font-size:clamp(44px,16vw,96px);max-width:calc(100vw - 32px);box-sizing:border-box;line-height:1;color:var(--chalk);background:rgba(17,23,20,.88);border:2px solid var(--line);border-radius:18px;padding:14px clamp(14px,4vw,34px);white-space:nowrap}
+.flash.big{color:var(--warn);border-color:var(--warn)}
+.flash.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.badge{font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+.badge.public{border-color:var(--grn);color:#7fe0a0}
+.badge.preview{border-color:var(--warn);color:var(--warn)}
+.badge.fail{border-color:var(--red);color:var(--red)}
+.meta2{color:var(--mut);font-size:12px}
+.runrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.runrow a{color:var(--fg)}
+#vaStyle{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font:inherit;font-size:14px;width:100%;box-sizing:border-box}
+.packrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.packrow .pk{flex:1;min-width:160px;font-size:14px}
+.chipbtn{font-size:13px;padding:6px 10px;border-color:var(--warn);color:var(--warn)}
+.chipbtn.live{border-color:var(--grn);color:#7fe0a0}
+#sessCode{width:96px;text-transform:uppercase;font-family:var(--f-num);font-size:22px;letter-spacing:.18em;text-align:center}
+#scanBox{margin-top:10px;max-width:320px}
+#scanVid,#remoteVid{width:100%;border-radius:10px;background:#000;display:block}
+.sessgrid{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:8px}
+#sessQR{background:#fff;border-radius:12px;padding:6px;width:200px;max-width:100%}
+#sessQR svg{display:block;width:100%;height:auto}
+.sessinfo{display:flex;flex-direction:column;gap:8px;min-width:0;flex:1}
+.sessinfo .code{font-family:var(--f-num);font-weight:700;font-size:56px;letter-spacing:.14em;line-height:1;color:var(--chalk)}
+.sesslink{word-break:break-all;font-size:12px}
+.remote{margin-top:16px}
+.remote .label{margin-bottom:8px}
+.fx{position:fixed;inset:0;width:100%;height:100%;z-index:30;pointer-events:none;display:none}
+.fx.on{display:block}
+.pl{background:linear-gradient(180deg,var(--panel2),var(--panel) 55%);overflow:hidden}
+.pl::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--line)}
+.pl.on::before{background:linear-gradient(90deg,var(--grn),#7fe0a0,var(--grn))}
+.pl.on{background:linear-gradient(180deg,rgba(63,145,96,.22),var(--panel) 60%)}
+.pl.won::before{background:linear-gradient(90deg,var(--warn),#fff1c1,var(--warn))}
+.pl .sc{text-shadow:0 2px 0 rgba(0,0,0,.45),0 0 24px rgba(245,236,213,.08)}
+.pl.on .sc{color:#fff8e6}
+.slot.f{background:linear-gradient(180deg,#26332d,var(--panel2));color:#fff8e6}
+@media (prefers-reduced-motion:no-preference){
+  .slot.f{animation:pop .28s cubic-bezier(.2,1.6,.4,1)}
+  .pl.on .dot{animation:pulse 1.4s ease-in-out infinite}
+}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(63,145,96,.7)}50%{box-shadow:0 0 0 6px rgba(63,145,96,0)}}
+@media (prefers-reduced-motion:no-preference){.flash{transition:opacity .25s,transform .25s}}
+.log{margin-top:14px;font-size:13px;color:var(--mut);max-height:150px;overflow:auto;font-variant-numeric:tabular-nums}
+.log div{padding:3px 0;border-top:1px solid var(--line)}
+
+/* Tabs */
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;font-weight:600}
+.tabs button[aria-selected=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+/* Board */
+#board{width:100%;max-width:440px;display:block;margin:0 auto;touch-action:manipulation;cursor:crosshair}
+#board path,#board circle.seg{stroke:#59625d;stroke-width:.6}
+#board path:hover,#board circle.seg:hover{filter:brightness(1.35)}
+#board text{font-family:var(--f-num);font-weight:600;font-size:17px;fill:var(--chalk);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.mult{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0 8px}
+.mult button[aria-pressed=true]{background:var(--red);border-color:var(--red);color:#fff}
+.nums{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.nums button{padding:9px 0;font-family:var(--f-num);font-size:19px;font-weight:600}
+.nums .w2{grid-column:span 2}
+
+/* Camera */
+.cvbox{position:relative;background:#000;border-radius:10px;overflow:hidden;min-height:160px;display:flex;align-items:center;justify-content:center}
+#cv{width:100%;height:auto;display:block;touch-action:manipulation}
+.cvbox .ph{position:absolute;color:var(--mut);font-size:14px;text-align:center;padding:16px;pointer-events:none}
+.status{margin:10px 0;padding:8px 12px;border-radius:8px;background:var(--panel2);font-size:14px}
+.status.w{color:var(--warn)} .status.e{color:var(--red)}
+.prop{margin:10px 0;padding:12px;border:1px solid var(--warn);border-radius:10px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.prop .v{font-family:var(--f-num);font-size:30px;font-weight:700;color:var(--chalk);margin-right:auto}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px}
+.set{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px;font-size:14px}
+.set label{display:flex;flex-direction:column;gap:4px}
+.set label.ck{flex-direction:row;align-items:center;gap:8px}
+.help{font-size:13px;color:var(--mut);margin-top:12px}
+.help ol{padding-left:18px;margin:6px 0}
+.filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* Settings */
+#settings{margin-bottom:16px}
+.names{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+.upd{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:var(--panel2);border-bottom:1px solid var(--grn)}
+@media (display-mode:standalone){.wrap{padding-top:calc(16px + env(safe-area-inset-top,0px))}}
+@media (prefers-reduced-motion:no-preference){.pl,.slot{transition:border-color .2s,box-shadow .2s}}
+</style>
+
+<div class="flash" id="flash" aria-live="polite"></div>
+<div class="upd" id="upd" hidden>
+  <span>En ny version av TrebleEye finns.</span>
+  <button class="pri" id="btnUpd">Uppdatera</button>
+</div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Treble<span>Eye</span></h1>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.4</span></div>
+    </div>
+    <div class="row">
+      <select id="selVoice" aria-label="Uppropare">
+        <option value="off">Ljud av</option>
+      </select>
+      <button class="chipbtn" id="sessChip" hidden></button>
+      <button id="btnSess">Starta session</button>
+      <button id="btnJoin">Anslut</button>
+      <button id="btnSettings">Nytt spel</button>
+    </div>
+  </header>
+
+  <section id="editPl" class="panel" hidden style="margin-bottom:16px">
+    <div class="label" style="margin-bottom:10px">Ändra spelare</div>
+    <div class="edit">
+      <div class="av lg" id="editAv"></div>
+      <div class="f">
+        <label class="label" style="display:flex;flex-direction:column;gap:4px">Namn
+          <input type="text" id="editName" maxlength="24" autocomplete="off">
+        </label>
+        <div class="row">
+          <span class="filebtn"><button tabindex="-1">Ta bild</button><input type="file" id="editCam" accept="image/*" capture="user" aria-label="Ta profilbild"></span>
+          <span class="filebtn"><button tabindex="-1">Välj bild</button><input type="file" id="editPick" accept="image/*" aria-label="Välj profilbild"></span>
+          <button id="editDel">Ta bort bild</button>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="pri" id="editSave">Spara</button>
+      <button id="editCancel">Avbryt</button>
+    </div>
+  </section>
+
+  <section id="voiceAdmin" class="panel" hidden style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div class="label">Hantera röster (admin)</div>
+      <button id="voiceAdminClose">Stäng</button>
+    </div>
+    <div id="vaConnect">
+      <p class="help">Koppla appen till GitHub en gång, så kan du publicera, dölja, ta bort och skapa röster härifrån. Nyckeln sparas bara på den här enheten.</p>
+      <div class="row"><input type="password" id="vaToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0" aria-label="GitHub-nyckel"><button class="pri" id="vaConnectBtn">Koppla</button></div>
+    </div>
+    <div class="label" style="margin-top:12px">Röster</div>
+    <div id="voiceList"></div>
+    <div id="vaTools" hidden>
+      <div class="label" style="margin-top:16px">Skapa eller göra om en röst</div>
+      <div class="set" style="margin-top:8px">
+        <label class="label">Namn <input type="text" id="vaName" maxlength="24" placeholder="t.ex. Ross"></label>
+        <label class="label">OpenAI-röst <select id="vaVoice"></select></label>
+        <label class="label">Tempo <select id="vaTempo"><option>1.0</option><option selected>1.1</option><option>1.2</option><option>1.3</option></select></label>
+        <label class="label">Tagningar <select id="vaTakes"><option>1</option><option selected>2</option><option>3</option></select></label>
+        <label class="label">Bara dessa klipp (valfritt) <input type="text" id="vaClips" placeholder="t.ex. s180,gameshot"></label>
+      </div>
+      <label class="label" style="display:flex;flex-direction:column;gap:6px;margin-top:10px">Egen stil på engelska (valfritt)
+        <textarea id="vaStyle" rows="2" placeholder="Lämna tomt för standardstilen"></textarea>
+      </label>
+      <div class="row" style="margin-top:10px">
+        <button id="vaPreview">Provlyssna (3 klipp)</button>
+        <button class="pri" id="vaCreate">Skapa alla klipp</button>
+      </div>
+      <div class="label" style="margin-top:16px">Senaste jobb</div>
+      <div id="vaRuns"><div class="help">Inga jobb än.</div></div>
+      <button id="vaDisconnect" style="margin-top:12px">Koppla från GitHub</button>
+    </div>
+    <div class="status" id="vaMsg" hidden></div>
+  </section>
+
+  <section id="sessPanel" class="panel" hidden style="margin-bottom:16px">
+    <div class="row" style="justify-content:space-between">
+      <div class="label">Delad session</div>
+      <button id="sessClose">Stäng</button>
+    </div>
+    <div id="sessIdle">
+      <p class="help">Skanna QR-koden eller skriv in koden som visas på enheten som startade sessionen (oftast kameratelefonen).</p>
+      <div class="label" style="margin-top:6px">Anslut till en session</div>
+      <div class="row" style="margin-top:6px">
+        <input type="text" id="sessCode" maxlength="4" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Sessionskod">
+        <button id="sessJoin">Anslut</button>
+        <button id="sessScan">Skanna QR</button>
+      </div>
+      <div id="scanBox" hidden><video id="scanVid" playsinline muted></video></div>
+    </div>
+    <div id="sessHostBox" hidden>
+      <div class="sessgrid">
+        <div id="sessQR" aria-label="QR-kod för att ansluta"></div>
+        <div class="sessinfo">
+          <div class="label">Kod</div>
+          <div class="code" id="sessCodeBig"></div>
+          <div class="help" id="sessDevs"></div>
+          <div class="help sesslink" id="sessLink"></div>
+          <button class="dng" id="sessEnd">Avsluta session</button>
+        </div>
+      </div>
+    </div>
+    <div id="sessClientBox" hidden>
+      <p id="sessClientTxt"></p>
+      <button class="dng" id="sessLeave">Lämna session</button>
+    </div>
+    <div class="status" id="sessMsg" hidden></div>
+  </section>
+
+  <section id="settings" class="panel" hidden>
+    <div class="set">
+      <label>Spel
+        <select id="selStart"><option>301</option><option selected>501</option><option>701</option></select>
+      </label>
+      <label>Antal spelare
+        <select id="selN"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+      </label>
+      <label class="ck"><input type="checkbox" id="chkDbl" checked> Dubbel ut (avsluta på dubbel eller bull)</label>
+    </div>
+    <div class="names" id="names"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="pri" id="btnStart">Starta spel</button>
+      <button id="btnCancel">Avbryt</button>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div>
+      <div class="players" id="players"></div>
+      <div class="panel turn">
+        <div class="row" style="justify-content:space-between">
+          <div class="label" id="turnLabel">Tur</div>
+          <div class="row">
+            <button id="btnUndo">Ångra</button>
+            <button class="pri" id="btnNext">Nästa spelare</button>
+          </div>
+        </div>
+        <div class="slots" id="slots"></div>
+        <div class="msg" id="msg"></div>
+        <div class="log" id="log"></div>
+      </div>
+      <div class="panel remote" id="remoteBox" hidden>
+        <div class="label">Livebild från kameran</div>
+        <video id="remoteVid" playsinline autoplay muted></video>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabMan" aria-selected="true">Manuell</button>
+        <button role="tab" id="tabCam" aria-selected="false">Kamera</button>
+      </div>
+
+      <div id="paneMan">
+        <svg id="board" viewBox="-210 -210 420 420" aria-label="Darttavla, tryck där pilen sitter"></svg>
+        <div class="mult" id="mult">
+          <button aria-pressed="true" data-m="1">Singel</button>
+          <button aria-pressed="false" data-m="2">Dubbel</button>
+          <button aria-pressed="false" data-m="3">Trippel</button>
+        </div>
+        <div class="nums" id="nums"></div>
+      </div>
+
+      <div id="paneCam" hidden>
+        <div class="cvbox">
+          <canvas id="cv" width="480" height="360"></canvas>
+          <div class="ph" id="ph">Kameran startar automatiskt när den är tillåten. Annars: tryck Starta kamera.</div>
+        </div>
+        <video id="vid" playsinline muted hidden></video>
+        <div class="status" id="camStatus">Kameran är avstängd.</div>
+        <div class="prop" id="prop" hidden>
+          <div class="v" id="propV">–</div>
+          <span class="label" id="propT"></span>
+          <button class="pri" id="btnAccept">Godkänn</button>
+          <button id="btnReject">Avvisa</button>
+          <div class="help" style="flex-basis:100%;margin:0">Fel ställe? Tryck på bilden där pilspetsen sitter.</div>
+        </div>
+        <div class="ctl">
+          <button class="pri" id="btnLive">Starta kamera</button>
+          <select id="selLens" aria-label="Lins"><option value="">Lins: bästa automatiskt</option></select>
+          <button id="btnAutoCal">Autokalibrera</button>
+          <button id="btnCalib">Kalibrera manuellt</button>
+          <button id="btnRef">Tom tavla nu</button>
+          <button id="btnDetect">Hitta pil nu</button>
+          <span class="filebtn"><button tabindex="-1" style="width:100%">Ta foto</button><input type="file" id="filePhoto" accept="image/*" capture="environment" aria-label="Ta foto"></span>
+        </div>
+        <div class="set">
+          <label>Kameran sitter
+            <select id="selDir">
+              <option value="top" selected>Ovanför tavlan</option>
+              <option value="bottom">Nedanför tavlan</option>
+              <option value="left">Till vänster</option>
+              <option value="right">Till höger</option>
+            </select>
+          </label>
+          <label>Känslighet <input type="range" id="rngThr" min="10" max="80" value="30"></label>
+          <label class="ck"><input type="checkbox" id="chkAuto" checked> Upptäck pilar automatiskt</label>
+          <label class="ck"><input type="checkbox" id="chkAutoAccept" checked> Godkänn efter 2 s</label>
+          <label class="ck"><input type="checkbox" id="chkAutoNext" checked> Byt spelare när pilarna dras ut</label>
+        </div>
+        <div class="help">
+          <ol>
+            <li>Sätt telefonen stadigt, gärna snett ovanför tavlan, med hela tavlan i bild.</li>
+            <li>Första gången: tryck <b>Starta kamera</b>. Appen väljer lins, kalibrerar och tar referens själv. Nästa gång startar kameran direkt.</li>
+            <li>Kasta. Pilen registreras när bilden är stilla och godkänns efter 2 s om du inte rättar den (tryck i bilden) eller avvisar.</li>
+            <li>Dra ut pilarna: nästa spelare väljs automatiskt.</li>
+          </ol>
+          Flyttas kameran kalibrerar appen om sig själv. Lyckas inte autokalibreringen, välj Kalibrera manuellt och tryck på dubbelringens ytterkant vid 20, 6, 3 och 11.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const ORDER=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+// Standard board radii in mm
+const R={bi:6.35,bo:15.9,ti:99,to:107,di:162,do:170};
+
+function dart(m,n){
+  const v=m*n;let label;
+  if(n===0)label="Miss";else if(n===25)label=m===2?"Bull":"25";
+  else label=(m===3?"T":m===2?"D":"")+n;
+  return {m,n,v,label};
+}
+// x,y in mm, y up, origin at bull
+function scoreAt(x,y){
+  const r=Math.hypot(x,y);
+  if(r>R.do)return dart(0,0);
+  if(r<=R.bi)return dart(2,25);
+  if(r<=R.bo)return dart(1,25);
+  const a=((Math.atan2(x,y)*180/Math.PI)+9+360)%360;
+  const n=ORDER[Math.floor(a/18)%20];
+  const m=(r>=R.ti&&r<=R.to)?3:(r>=R.di)?2:1;
+  return dart(m,n);
+}
+
+/* ---------- Checkout ---------- */
+const ALL=[],DBL=[];
+for(let n=20;n>=1;n--)ALL.push(dart(3,n));
+ALL.push(dart(2,25));
+for(let n=20;n>=1;n--)ALL.push(dart(2,n));
+ALL.push(dart(1,25));
+for(let n=20;n>=1;n--)ALL.push(dart(1,n));
+for(let n=20;n>=1;n--)DBL.push(dart(2,n));
+DBL.push(dart(2,25));
+const PREF=[40,32,16,24,36,20,8,12,28,4,50,38,34,30,26,22,18,14,10,6,2];
+DBL.sort((a,b)=>{const ia=PREF.indexOf(a.v),ib=PREF.indexOf(b.v);return (ia<0?99:ia)-(ib<0?99:ib);});
+// Standard professional double-out routes (bogey numbers 169,168,166,165,163,162,159 have none)
+const CO_TXT="170:T20 T20 Bull|167:T20 T19 Bull|164:T20 T18 Bull|161:T20 T17 Bull|160:T20 T20 D20|158:T20 T20 D19|157:T20 T19 D20|156:T20 T20 D18|155:T20 T19 D19|154:T20 T18 D20|153:T20 T19 D18|152:T20 T20 D16|151:T20 T17 D20|150:T20 T18 D18|149:T20 T19 D16|148:T20 T20 D14|147:T20 T17 D18|146:T20 T18 D16|145:T20 T15 D20|144:T20 T20 D12|143:T20 T17 D16|142:T20 T14 D20|141:T20 T19 D12|140:T20 T20 D10|139:T19 T14 D20|138:T20 T18 D12|137:T20 T19 D10|136:T20 T20 D8|135:T20 T17 D12|134:T20 T14 D16|133:T20 T19 D8|132:T20 T16 D12|131:T20 T13 D16|130:T20 T18 D8|129:T19 T16 D12|128:T18 T14 D16|127:T20 T17 D8|126:T19 T19 D6|125:25 T20 D20|124:T20 T16 D8|123:T19 T16 D9|122:T18 T20 D4|121:T20 T11 D14|120:T20 20 D20|119:T19 T12 D13|118:T20 18 D20|117:T20 17 D20|116:T20 16 D20|115:T20 15 D20|114:T20 14 D20|113:T20 13 D20|112:T20 12 D20|111:T20 11 D20|110:T20 10 D20|109:T20 9 D20|108:T20 16 D16|107:T19 10 D20|106:T20 14 D16|105:T20 13 D16|104:T18 18 D16|103:T19 6 D20|102:T20 10 D16|101:T17 10 D20|100:T20 D20|99:T19 10 D16|98:T20 D19|97:T19 D20|96:T20 D18|95:T19 D19|94:T18 D20|93:T19 D18|92:T20 D16|91:T17 D20|90:T20 D15|89:T19 D16|88:T16 D20|87:T17 D18|86:T18 D16|85:T15 D20|84:T20 D12|83:T17 D16|82:Bull D16|81:T19 D12|80:T20 D10|79:T19 D11|78:T18 D12|77:T19 D10|76:T20 D8|75:T17 D12|74:T14 D16|73:T19 D8|72:T16 D12|71:T13 D16|70:T18 D8|69:T19 D6|68:T20 D4|67:T17 D8|66:T10 D18|65:25 D20|64:T16 D8|63:T13 D12|62:T10 D16|61:T15 D8|60:20 D20|59:19 D20|58:18 D20|57:17 D20|56:16 D20|55:15 D20|54:14 D20|53:13 D20|52:12 D20|51:11 D20|50:10 D20|49:9 D20|48:16 D16|47:15 D16|46:6 D20|45:13 D16|44:12 D16|43:3 D20|42:10 D16|41:9 D16|39:7 D16|37:5 D16|35:3 D16|33:1 D16|31:15 D8|29:13 D8|27:11 D8|25:9 D8|23:7 D8|21:5 D8|19:3 D8|17:1 D8|15:7 D4|13:5 D4|11:3 D4|9:1 D4|7:3 D2|5:1 D2|3:1 D1";
+const CO={};
+function parseDart(l){if(l==="Bull")return dart(2,25);if(l==="25")return dart(1,25);const m=l[0]==="T"?3:l[0]==="D"?2:1;return dart(m,+(m>1?l.slice(1):l));}
+CO_TXT.split("|").forEach(e=>{const [k,v]=e.split(":");CO[k]=v.split(" ").map(parseDart);});
+for(let n=2;n<=40;n+=2)CO[n]=[dart(2,n/2)];
+function checkout(s,left,dbl){
+  if(left<1||s<1||s>180)return null;
+  if(dbl&&(s>170||s<2))return null;
+  if(dbl&&CO[s]&&CO[s].length<=left)return CO[s];
+  const fin=dbl?DBL:ALL;
+  for(const f of fin)if(f.v===s)return [f];
+  if(left<2)return null;
+  for(const f of fin)for(const a of ALL)if(a.v+f.v===s)return [a,f];
+  if(left<3)return null;
+  for(const f of fin)for(const a of ALL)for(const b of ALL)if(a.v+b.v+f.v===s)return [a,b,f];
+  return null;
+}
+
+/* ---------- Game ---------- */
+let G=null,undo=[];
+const store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+
+function newTurn(s){return {darts:[],start:s,bust:false,done:false};}
+function newGame(cfg){
+  G={start:cfg.start,dbl:cfg.dbl,legStarter:0,cur:0,winner:null,log:[],
+     players:cfg.names.map(n=>({name:n,score:cfg.start,pts:0,darts:0,legs:0}))};
+  G.turn=newTurn(cfg.start);undo=[];save();render();
+}
+function snap(){undo.push(JSON.stringify(G));if(undo.length>300)undo.shift();}
+function save(){if(sess.role==="client")return;store.set("dk_game",G);sess.changed();}
+
+function addDart(d,pos,fromCam){
+  if(sess.role==="client"){sess.send({a:"dart",d:{m:d.m,n:d.n},pos:pos||null});return;}
+  if(!G||G.winner!==null)return;
+  if(G.turn.done)nextPlayer();
+  snap();
+  const p=G.players[G.cur],t=G.turn;
+  d=Object.assign({},d,{pos:pos||null});
+  t.darts.push(d);p.darts++;
+  const rest=p.score-d.v;
+  if(rest<0||(G.dbl&&rest===1)||(rest===0&&G.dbl&&d.m!==2)){
+    t.bust=true;t.done=true;p.pts-=(t.start-p.score);p.score=t.start;
+  }else{
+    p.score=rest;p.pts+=d.v;
+    if(rest===0){G.winner=G.cur;t.done=true;p.legs++;}
+    else if(t.darts.length===3)t.done=true;
+  }
+  if(t.done){logTurn();caller.turnDone(t,p);}else caller.dart();
+  save();render();
+  if(!fromCam)cam.afterManual();
+}
+function logTurn(){
+  const p=G.players[G.cur],t=G.turn;
+  const sum=t.darts.reduce((s,d)=>s+d.v,0);
+  G.log.unshift(p.name+": "+t.darts.map(d=>d.label).join(", ")+" = "+(t.bust?"BUST":sum)+(G.winner!==null?" · vinst":""));
+  G.log=G.log.slice(0,40);
+}
+function nextPlayer(){
+  if(sess.role==="client"){sess.send({a:"next"});return;}
+  if(!G)return;
+  if(G.winner!==null){newLeg();return;}
+  snap();
+  const p=G.players[G.cur],t=G.turn;
+  if(!t.done){p.darts+=3-t.darts.length;if(t.darts.length)logTurn();}
+  G.cur=(G.cur+1)%G.players.length;
+  G.turn=newTurn(G.players[G.cur].score);
+  save();render();cam.onNewTurn();caller.turnStart();
+}
+function newLeg(){
+  snap();
+  G.players.forEach(p=>{p.score=G.start;});
+  G.legStarter=(G.legStarter+1)%G.players.length;
+  G.cur=G.legStarter;G.winner=null;
+  G.turn=newTurn(G.start);
+  save();render();cam.onNewTurn();caller.gameOn();
+}
+function doUndo(){if(sess.role==="client"){sess.send({a:"undo"});return;}if(!undo.length)return;G=JSON.parse(undo.pop());save();render();}
+
+/* ---------- Player profiles ---------- */
+let PROF=null;
+function profiles(){return PROF||(PROF=store.get("dk_profiles")||{});}
+function saveProfile(name,photo){
+  const pr=profiles();
+  if(photo)pr[name]=photo;else delete pr[name];
+  // keep storage small: at most 30 saved faces
+  const keys=Object.keys(pr);while(keys.length>30)delete pr[keys.shift()];
+  store.set("dk_profiles",pr);
+}
+function initials(n){return (n||"?").trim().split(/\s+/).map(w=>w[0]||"").join("").slice(0,2).toUpperCase()||"?";}
+function fillAv(el,name,photo){
+  el.textContent="";
+  if(photo){const im=document.createElement("img");im.src=photo;im.alt="";el.appendChild(im);}
+  else el.textContent=initials(name);
+}
+let editIdx=-1,editPhoto=null;
+function openEdit(i){
+  editIdx=i;const p=G.players[i];editPhoto=profiles()[p.name]||null;
+  $("editName").value=p.name;fillAv($("editAv"),p.name,editPhoto);
+  $("settings").hidden=true;$("editPl").hidden=false;
+  $("editPl").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function closeEdit(){$("editPl").hidden=true;editIdx=-1;}
+function loadPhoto(file){
+  if(!file)return;
+  const img=new Image(),url=URL.createObjectURL(file);
+  img.onload=()=>{
+    // centre-crop to a square and shrink so it fits in local storage
+    const S=192,c=document.createElement("canvas");c.width=c.height=S;
+    const k=Math.min(img.naturalWidth,img.naturalHeight),sx=(img.naturalWidth-k)/2,sy=(img.naturalHeight-k)/2;
+    c.getContext("2d").drawImage(img,sx,sy,k,k,0,0,S,S);
+    editPhoto=c.toDataURL("image/jpeg",0.82);URL.revokeObjectURL(url);
+    fillAv($("editAv"),$("editName").value,editPhoto);
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);};
+  img.src=url;
+}
+function saveEdit(){
+  if(editIdx<0)return;
+  const p=G.players[editIdx],name=($("editName").value||"").trim()||p.name;
+  saveProfile(name,editPhoto);
+  if(sess.role==="client"){sess.send({a:"rename",i:editIdx,name,photo:editPhoto});closeEdit();return;}
+  p.name=name;
+  save();render();closeEdit();
+}
+
+function coLine(p,i){
+  if(G.winner!==null||!G.dbl)return "";
+  if(i===G.cur&&G.turn.done)return "";
+  const left=i===G.cur?3-G.turn.darts.length:3;
+  const co=checkout(p.score,left,true);
+  if(!co)return p.score<=170&&p.score>1?'<div class="co none">Ingen utgång</div>':"";
+  return '<div class="co">'+co.map(d=>'<span>'+d.label+'</span>').join("")+'</div>';
+}
+
+/* ---------- Sound: recorded caller clips + synth effects ---------- */
+const audio=(function(){
+  let ac=null,endAt=0;const buf={};let VOICE=store.get("dk_caller")||"george";
+  if(!/^[a-z0-9-]+$/.test(VOICE))VOICE="george";
+  if(VOICE==="ross-3")VOICE="ross";   // renamed voice
+  function ctx(){
+    if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ac=new C();}
+    if(ac.state==="suspended")ac.resume().catch(()=>{});
+    return ac;
+  }
+  // iOS unlocks Web Audio only inside a tap: play one silent sample on the first touch
+  let unlocked=false;
+  document.addEventListener("pointerdown",()=>{
+    const a=ctx();if(!a||unlocked)return;unlocked=true;
+    const s=a.createBufferSource();s.buffer=a.createBuffer(1,1,22050);s.connect(a.destination);s.start(0);
+  },{passive:true});
+  async function load(name){
+    const k=VOICE+"/"+name;if(buf[k])return buf[k];
+    let ab;
+    const r=await fetch("audio/"+VOICE+"/"+name+".mp3");if(!r.ok)throw new Error("missing");ab=await r.arrayBuffer();
+    const a=ctx();
+    return buf[k]=await new Promise((res,rej)=>a.decodeAudioData(ab,res,rej));
+  }
+  // play any clip url right away (admin preview); resolves when it has finished
+  async function playUrl(url){
+    const a=ctx();if(!a)return;const r=await fetch(url);if(!r.ok)throw new Error("missing");const ab=await r.arrayBuffer();
+    const b=await new Promise((res,rej)=>a.decodeAudioData(ab,res,rej)),s=a.createBufferSource();s.buffer=b;s.connect(a.destination);
+    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.04;
+    await sleep((endAt-a.currentTime)*1000);
+  }
+  // small synthetic hall: decaying stereo noise used as a reverb impulse
+  let verb=null;
+  function hall(a){
+    if(verb)return verb;
+    const len=Math.floor(a.sampleRate*1.4),ir=a.createBuffer(2,len,a.sampleRate);
+    for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.2);}
+    const cv=a.createConvolver();cv.buffer=ir;const wet=a.createGain();wet.gain.value=1;cv.connect(wet).connect(a.destination);
+    return verb={cv,wet};
+  }
+  const takes=()=>{const v=(typeof VOICES!=="undefined"?VOICES:[]).find(x=>x.id===VOICE);return Math.max(1,Math.min(3,(v&&v.takes)|0||1));};
+  // energy 0..1: bigger scores sound a touch higher, faster and roomier; every call varies slightly
+  async function clip(name,energy){
+    const a=ctx();if(!a)throw new Error("no audio");
+    const n=takes(),k=1+Math.floor(Math.random()*n);let b;
+    try{b=await load(k>1?name+"_"+k:name);}catch(e){if(k===1)throw e;b=await load(name);}
+    const e=Math.max(0,Math.min(1,energy||0)),rate=1+e*0.045+(Math.random()-0.5)*0.04;
+    const s=a.createBufferSource();s.buffer=b;s.playbackRate.value=rate;
+    const g=a.createGain();g.gain.value=0.92+Math.random()*0.08+e*0.08;
+    const send=a.createGain();send.gain.value=0.07+e*0.11;
+    s.connect(g);g.connect(a.destination);g.connect(send);send.connect(hall(a).cv);
+    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration/rate+0.04;
+  }
+  function noise(a,dur){const b=a.createBuffer(1,Math.ceil(a.sampleRate*dur),a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
+  function sfx(type){
+    const a=ctx();if(!a||a.state!=="running")return;const t=a.currentTime;
+    const out=a.createGain();out.gain.value=0.55;out.connect(a.destination);
+    if(type==="thunk"){
+      const n=a.createBufferSource();n.buffer=noise(a,0.09);const f=a.createBiquadFilter();f.type="lowpass";f.frequency.value=1400;
+      const g=a.createGain();g.gain.setValueAtTime(0.9,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.09);n.connect(f).connect(g).connect(out);n.start(t);
+      const o=a.createOscillator();o.frequency.setValueAtTime(170,t);o.frequency.exponentialRampToValueAtTime(55,t+0.14);
+      const g2=a.createGain();g2.gain.setValueAtTime(0.8,t);g2.gain.exponentialRampToValueAtTime(0.001,t+0.16);o.connect(g2).connect(out);o.start(t);o.stop(t+0.17);
+    }else if(type==="boom"){
+      const o=a.createOscillator();o.frequency.setValueAtTime(95,t);o.frequency.exponentialRampToValueAtTime(32,t+0.9);
+      const g=a.createGain();g.gain.setValueAtTime(1,t);g.gain.exponentialRampToValueAtTime(0.001,t+1);o.connect(g).connect(out);o.start(t);o.stop(t+1);
+      const n=a.createBufferSource();n.buffer=noise(a,0.6);const f=a.createBiquadFilter();f.type="lowpass";f.frequency.setValueAtTime(3000,t);f.frequency.exponentialRampToValueAtTime(200,t+0.6);
+      const g2=a.createGain();g2.gain.setValueAtTime(0.6,t);g2.gain.exponentialRampToValueAtTime(0.001,t+0.6);n.connect(f).connect(g2).connect(out);n.start(t);
+    }else if(type==="whoosh"){
+      const n=a.createBufferSource();n.buffer=noise(a,0.35);const f=a.createBiquadFilter();f.type="bandpass";f.Q.value=2;
+      f.frequency.setValueAtTime(400,t);f.frequency.exponentialRampToValueAtTime(3500,t+0.3);
+      const g=a.createGain();g.gain.setValueAtTime(0.001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.15);g.gain.exponentialRampToValueAtTime(0.001,t+0.35);
+      n.connect(f).connect(g).connect(out);n.start(t);
+    }else if(type==="win"){
+      [523,659,784,1047].forEach((fr,i)=>{const o=a.createOscillator();o.type="triangle";o.frequency.value=fr;const g=a.createGain(),s=t+i*0.11;
+        g.gain.setValueAtTime(0.001,s);g.gain.exponentialRampToValueAtTime(0.35,s+0.02);g.gain.exponentialRampToValueAtTime(0.001,s+0.5);o.connect(g).connect(out);o.start(s);o.stop(s+0.5);});
+    }else if(type==="bust"){
+      const o=a.createOscillator();o.type="sawtooth";o.frequency.setValueAtTime(180,t);o.frequency.exponentialRampToValueAtTime(70,t+0.4);
+      const g=a.createGain();g.gain.setValueAtTime(0.25,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.45);o.connect(g).connect(out);o.start(t);o.stop(t+0.45);
+    }
+  }
+  // fill the offline cache in the background once the app is idle
+  function prefetch(names){
+    if(location.protocol!=="https:")return;let i=0;const base="audio/"+VOICE+"/",n=takes();
+    if(n>1)names=names.flatMap(x=>[x].concat(Array.from({length:n-1},(_,j)=>x+"_"+(j+2))));
+    const next=()=>{if(i>=names.length)return;fetch(base+names[i++]+".mp3").catch(()=>{}).finally(()=>setTimeout(next,60));};
+    setTimeout(next,4000);
+  }
+  function setVoice(v){VOICE=v;for(const k in buf)delete buf[k];store.set("dk_caller",v);}
+  return {clip,sfx,prefetch,setVoice,playUrl,get voice(){return VOICE;}};
+})();
+
+/* ---------- Full-screen effects (canvas) ---------- */
+const fx=(function(){
+  const c=document.createElement("canvas");c.className="fx";document.body.appendChild(c);
+  const x=c.getContext("2d");let W=0,H=0,D=1,parts=[],scene=null,running=false;
+  const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function size(){D=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;}
+  size();addEventListener("resize",size);
+  const GOLD=["#f2b33d","#ffd76a","#fff1c1","#d4433b","#3f9160","#efe7d3"];
+  const FIRE=["#ffd76a","#ff6b5a","#7fe0a0","#8fc7ff","#fff1c1"];
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const ease=t=>1-Math.pow(1-t,3);
+  const back=t=>{const s=2.2;t-=1;return t*t*((s+1)*t+s)+1;};
+  function burst(n,cx,cy,sp,cols,kind){
+    for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=sp*(0.3+Math.random()*0.7);
+      parts.push({k:kind||"c",x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-(kind==="s"?0:sp*0.4),r:Math.random()*6,vr:(Math.random()-.5)*.4,
+        w:6+Math.random()*7,h:3+Math.random()*4,c:cols[i%cols.length],l:1,d:kind==="s"?0.016+Math.random()*0.016:0.004+Math.random()*0.005});}
+  }
+  function drawParts(){
+    for(let i=parts.length-1;i>=0;i--){const p=parts[i];
+      if(p.k==="s"){p.vx*=0.955;p.vy=p.vy*0.955+0.07;}else{p.vx*=0.985;p.vy=p.vy*0.985+0.2;p.r+=p.vr;}
+      p.x+=p.vx;p.y+=p.vy;p.l-=p.d;
+      if(p.l<=0||p.y>H+40){parts.splice(i,1);continue;}
+      x.globalAlpha=clamp(p.l*1.4,0,1);x.fillStyle=p.c;
+      if(p.k==="s"){x.beginPath();x.arc(p.x,p.y,2.4,0,7);x.fill();}
+      else{x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillRect(-p.w/2,-p.h/2,p.w,Math.max(1,p.h*Math.abs(Math.cos(p.r*1.7))));x.restore();}
+    }
+    x.globalAlpha=1;
+  }
+  function fade(t,inn,out){return t<inn?t/inn:t>1-out?(1-t)/out:1;}
+  function dim(t,a,col){const k=fade(t,0.08,0.15);x.fillStyle=col||"rgba(4,7,5,1)";x.globalAlpha=a*k;x.fillRect(0,0,W,H);x.globalAlpha=1;return k;}
+  function rays(cx,cy,t,col,alpha){
+    x.save();x.translate(cx,cy);x.rotate(t*1.1);const R=Math.hypot(W,H);x.fillStyle=col;x.globalAlpha=alpha;
+    for(let i=0;i<16;i++){x.rotate(Math.PI*2/16);x.beginPath();x.moveTo(0,0);x.lineTo(R,-R*0.08);x.lineTo(R,R*0.08);x.closePath();x.fill();}
+    x.restore();x.globalAlpha=1;
+  }
+  function ring(cx,cy,p,col,wid){if(p<=0||p>=1)return;x.strokeStyle=col;x.globalAlpha=(1-p)*0.9;x.lineWidth=(wid||12)*(1-p)+1;x.beginPath();x.arc(cx,cy,ease(p)*Math.max(W,H)*0.65,0,7);x.stroke();x.globalAlpha=1;}
+  function font(size){return "700 "+size+"px 'Barlow Condensed','Arial Narrow',sans-serif";}
+  function fit(str,size,maxw){x.font=font(size);const w=x.measureText(str).width,m=W*(maxw||0.88);return w>m?size*m/w:size;}
+  function text(str,cx,cy,size,scale,fill,glow,alpha){
+    x.save();x.globalAlpha=alpha==null?1:alpha;x.translate(cx,cy);x.scale(scale,scale);x.font=font(size);x.textAlign="center";x.textBaseline="middle";
+    let f=fill;
+    if(fill==="gold"){f=x.createLinearGradient(0,-size*0.45,0,size*0.45);f.addColorStop(0,"#fff6d2");f.addColorStop(0.45,"#ffd257");f.addColorStop(0.55,"#f0a92a");f.addColorStop(1,"#a8650c");}
+    if(fill==="red"){f=x.createLinearGradient(0,-size*0.45,0,size*0.45);f.addColorStop(0,"#ffb1a8");f.addColorStop(0.5,"#e5463c");f.addColorStop(1,"#8c1d17");}
+    x.lineJoin="round";x.lineWidth=Math.max(5,size/14);x.strokeStyle="rgba(8,10,9,.95)";x.strokeText(str,0,0);
+    if(glow){x.shadowColor=glow;x.shadowBlur=size/4;}
+    x.fillStyle=f;x.fillText(str,0,0);x.restore();
+  }
+  function shake(t,t0,dur,amt){const k=t-t0;if(k<0||k>dur)return;const a=amt*(1-k/dur);x.translate((Math.random()-.5)*a,(Math.random()-.5)*a);}
+  function loop(now){
+    x.setTransform(D,0,0,D,0,0);x.clearRect(0,0,W,H);let alive=false;
+    if(scene){const t=(now-scene.s)/scene.dur;if(t>=1)scene=null;else{x.save();scene.fn(t);x.restore();alive=true;}}
+    if(parts.length){drawParts();alive=true;}
+    if(alive)requestAnimationFrame(loop);else{running=false;c.classList.remove("on");}
+  }
+  function play(fn,dur){scene={fn,dur,s:performance.now()};c.classList.add("on");if(!running){running=true;requestAnimationFrame(loop);}}
+  // the shared "slam" moment: big text drops in, rings, rays, confetti
+  function slamLayer(t,st,o){
+    const cx=W/2,cy=H*0.42,T0=o.at;
+    if(t<T0)return;
+    const k=fade(t,0,0.14);
+    if(o.ray)rays(cx,cy,t,o.ray,0.14*k);
+    ring(cx,cy,(t-T0)/0.3,o.ring||"#ffd257",16);ring(cx,cy,(t-T0-0.06)/0.38,"#ffffff",8);
+    if(!st.slammed){st.slammed=1;if(o.conf)burst(o.conf,cx,cy,o.sp||15,o.cols||GOLD);if(o.onSlam)o.onSlam();}
+    x.save();shake(t,T0,0.1,o.shake||20);
+    const p=clamp((t-T0)/0.13,0,1),sc=1+2.2*(1-back(p)),size=st.size||(st.size=fit(o.main,Math.min(W,H)*(o.scale||0.42)));
+    text(o.main,cx,cy,size,sc,o.fill||"gold",o.glow||"rgba(255,200,80,.85)",k);
+    if(o.sub){const q=ease(clamp((t-T0-0.1)/0.15,0,1)),ss=st.ss||(st.ss=fit(o.sub,size*0.24,0.92));
+      text(o.sub,cx,cy+size*0.55+ss*0.6+24*(1-q),ss,1,"#efe7d3",null,q*k);}
+    if(o.sub2){const q=ease(clamp((t-T0-0.16)/0.15,0,1)),s2=st.s2||(st.s2=fit(o.sub2,size*0.17,0.92));
+      text(o.sub2,cx,cy+size*0.55+(st.ss||0)*1.4+s2*0.9+24*(1-q),s2,1,"#f2b33d",null,q*k);}
+    x.restore();
+  }
+  function drawDart(px,py,ang,len){
+    x.save();x.translate(px,py);x.rotate(ang);
+    x.fillStyle="#c9ccd1";x.fillRect(-len*0.05,-2,len*0.05,4);                 // point
+    const g=x.createLinearGradient(0,-5,0,5);g.addColorStop(0,"#f4f4f4");g.addColorStop(1,"#6b7078");
+    x.fillStyle=g;x.fillRect(-len*0.45,-5,len*0.4,10);                          // barrel
+    x.fillStyle="#2b2f33";x.fillRect(-len*0.75,-2.5,len*0.3,5);                 // shaft
+    x.fillStyle="#d4433b";x.beginPath();x.moveTo(-len*0.72,0);x.lineTo(-len,-len*0.16);x.lineTo(-len*0.95,0);x.lineTo(-len,len*0.16);x.closePath();x.fill();
+    x.restore();
+  }
+  function score(o){
+    if(reduce){flashDom(o.main);return;}
+    const st={};play(t=>{dim(t,o.dimA||0.7,o.dimCol);slamLayer(t,st,o);},o.dur||1900);
+  }
+  function oneEighty(onSlam){
+    if(reduce){flashDom("180");onSlam&&onSlam();return;}
+    const st={},hits=[0,0,0];
+    play(t=>{
+      const k=dim(t,0.82),cx=W/2,cy=H*0.42,R=Math.min(W,H)*0.22;
+      // the treble-20 bed the darts land in
+      const bedA=clamp(t/0.06,0,1)*(t<0.5?1:Math.max(0,1-(t-0.5)/0.12));
+      if(bedA>0){x.globalAlpha=bedA;x.fillStyle="#141816";x.beginPath();x.arc(cx,cy+R*2.2,R*2.6,-Math.PI/2-0.32,-Math.PI/2+0.32);x.lineTo(cx,cy+R*2.2);x.fill();
+        x.strokeStyle="#c63a33";x.lineWidth=R*0.32;x.beginPath();x.arc(cx,cy+R*2.2,R*2.25,-Math.PI/2-0.3,-Math.PI/2+0.3);x.stroke();x.globalAlpha=1;}
+      for(let i=0;i<3;i++){
+        const t0=0.05+i*0.11,land=t0+0.07,tx=cx+(i-1)*R*0.42,ty=cy+R*0.02*(i===1?-1:1);
+        if(t<t0)continue;
+        const p=clamp((t-t0)/(land-t0),0,1),sx=W+80,sy=H*0.95,px=sx+(tx-sx)*ease(p),py=sy+(ty-sy)*ease(p);
+        if(p>=1&&!hits[i]){hits[i]=1;burst(26,tx,ty,6,["#fff1c1","#ffd76a","#ffffff"],"s");audio.sfx("thunk");}
+        const a=Math.atan2(ty-sy,tx-sx);x.globalAlpha=t<0.5?1:Math.max(0,1-(t-0.5)/0.12);drawDart(px,py,a,R*0.95);x.globalAlpha=1;
+        if(hits[i]&&t<0.5){const q=clamp((t-land)/0.12,0,1);text("60",tx,ty-R*0.55-q*20,R*0.32,1,"#fff1c1",null,1-q*0.3);}
+      }
+      slamLayer(t,st,{at:0.47,main:"180",sub:"ONE HUNDRED AND EIGHTY",ray:"#f2b33d",conf:260,sp:17,shake:28,scale:0.5,onSlam:()=>{audio.sfx("boom");onSlam&&onSlam();}});
+    },3600);
+  }
+  function gameShot(name,sub2){
+    if(reduce){flashDom("GAME SHOT");return;}
+    const st={},fired={};
+    play(t=>{
+      dim(t,0.8);
+      for(let i=0;i<9;i++){const ft=0.08+i*0.085;if(t>ft&&!fired[i]){fired[i]=1;
+        const fx_=W*(0.15+Math.random()*0.7),fy=H*(0.12+Math.random()*0.35);burst(70,fx_,fy,7.5,[FIRE[i%FIRE.length],"#ffffff"],"s");}}
+      slamLayer(t,st,{at:0.06,main:"GAME SHOT",sub:name.toUpperCase(),sub2:sub2,ray:"#7fe0a0",ring:"#7fe0a0",conf:180,scale:0.3,glow:"rgba(127,224,160,.8)"});
+    },3800);
+  }
+  function bust(){
+    if(reduce){flashDom("BUST");return;}
+    const st={};
+    play(t=>{dim(t,0.6,"#3a0705");slamLayer(t,st,{at:0.02,main:"BUST",fill:"red",glow:"rgba(229,70,60,.8)",ring:"#e5463c",shake:40,scale:0.36});},1500);
+  }
+  function flashDom(text,big){
+    const f=$("flash");f.textContent=text;f.className="flash"+(big?" big":"");void f.offsetWidth;f.classList.add("on");
+    clearTimeout(flashDom.t);flashDom.t=setTimeout(()=>f.classList.remove("on"),1500);
+  }
+  return {score,oneEighty,gameShot,bust,flash:flashDom};
+})();
+
+/* ---------- Caller ---------- */
+const caller=(function(){
+  const ss=window.speechSynthesis;
+  // only our own recorded voices or silence; earlier phone-voice choices move to the recorded voices
+  let lang=store.get("dk_voice")==="off"?"off":"pro";
+  const ONES=["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+  const TENS=["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+  function en(n){if(n<20)return ONES[n];if(n<100)return TENS[Math.floor(n/10)]+(n%10?"-"+ONES[n%10]:"");return ONES[Math.floor(n/100)]+" hundred"+(n%100?" and "+en(n%100):"");}
+  function voice(l){
+    if(!ss)return null;const vs=ss.getVoices(),want=l==="sv"?"sv":"en",exact=l==="sv"?"sv-SE":"en-GB";
+    const ok=vs.filter(v=>v.lang.replace("_","-").toLowerCase().startsWith(want));
+    // prefer the higher quality voices iOS/macOS offer when installed
+    return ok.find(v=>v.lang.replace("_","-")===exact&&/enhanced|premium|förbättrad/i.test(v.name))||ok.find(v=>/enhanced|premium|förbättrad/i.test(v.name))||ok.find(v=>v.lang.replace("_","-")===exact)||ok[0]||null;
+  }
+  function tts(text,opt,l){
+    if(!ss)return;l=l||lang;
+    const u=new SpeechSynthesisUtterance(text),v=voice(l);
+    if(v){u.voice=v;u.lang=v.lang;}else u.lang=l==="sv"?"sv-SE":"en-GB";
+    u.rate=(opt&&opt.rate)||0.92;u.pitch=(opt&&opt.pitch)||1;ss.speak(u);
+  }
+  // one call: recorded clip in pro mode (falls back to the phone voice), phone voice otherwise
+  function call(clipName,enText,svText,opt){
+    if(lang==="off")return;
+    if(lang==="sv"){tts(svText,opt,"sv");return;}
+    if(lang==="pro"&&clipName){audio.clip(clipName,opt&&opt.e).catch(()=>tts(enText,opt,"en"));return;}
+    tts(enText,opt,"en");
+  }
+  const fxOn=()=>lang!=="off";
+  return {
+    setLang(l){lang=l;store.set("dk_voice",l);},
+    get lang(){return lang;},
+    dart(){if(fxOn())audio.sfx("thunk");},
+    turnDone(t,p){
+      const sum=t.darts.reduce((s,d)=>s+d.v,0);
+      if(G.winner!==null){
+        const co=t.start;
+        fx.gameShot(p.name,co===170?"THE BIG FISH · 170":co>=100?"CHECKOUT "+co:"");
+        if(fxOn())audio.sfx("win");
+        call("gameshot","Game shot, and the leg, "+p.name+"!","Game shot, och leget till "+p.name+"!",{rate:0.88,pitch:1.05,e:0.85});
+        return;
+      }
+      if(t.bust){fx.bust();if(fxOn())audio.sfx("bust");call("s0","No score","Inga poäng");return;}
+      if(sum===180){fx.oneEighty(()=>call("s180","One hundred... and eighty!","Ett hundra... och åttio!",{rate:0.8,pitch:1.1,e:1}));return;}
+      if(sum>=100){
+        fx.score({main:String(sum),sub:sum>=140?"TON-FORTY PLUS":sum>100?"TON-PLUS":"THE TON",at:0.05,ray:"#f2b33d",conf:sum>=140?120:70,dur:2000});
+        if(fxOn())audio.sfx("whoosh");
+      }else fx.flash(sum===0?"NO SCORE":String(sum),false);
+      call("s"+sum,sum===0?"No score":en(sum),sum===0?"Inga poäng":String(sum),{rate:sum>=100?0.88:0.95,pitch:sum>=100?1.05:1,e:sum>=140?0.7:sum>=100?0.45:sum>=60?0.15:0});
+    },
+    turnStart(){
+      const p=G.players[G.cur];
+      if(G.dbl&&p.score<=170&&checkout(p.score,3,true))
+        call("r"+p.score,p.name+", you require "+en(p.score),p.name+", du behöver "+p.score,{e:0.2});
+    },
+    gameOn(){
+      const p=G.players[G.cur];
+      call("gameon",p.name+" to throw first. Game on!",p.name+" börjar. Game on!",{e:0.6});
+    },
+    clipNames(){const n=["gameon","gameshot"];for(let i=0;i<=180;i++)n.push("s"+i);for(let i=2;i<=170;i++)if(CO[i])n.push("r"+i);return n;}
+  };
+})();
+
+/* ---------- Render ---------- */
+function render(){
+  $("gameMeta").textContent=G.start+" · "+(G.dbl?"dubbel ut":"rak ut");
+  const pl=$("players");pl.innerHTML="";
+  G.players.forEach((p,i)=>{
+    const el=document.createElement("div");
+    el.className="pl"+(i===G.cur&&G.winner===null?" on":"")+(G.winner===i?" won":"");
+    const avg=p.darts?(p.pts/p.darts*3).toFixed(1):"–";
+    el.title="Tryck för att ändra namn eller bild";
+    el.innerHTML='<div class="nm"><span class="who"><span class="av"></span><span class="pn"></span></span>'+(i===G.cur&&G.winner===null?'<span class="dot" title="Kastar"></span>':"")+'</div>'+
+      '<div class="sc">'+p.score+'</div><div class="st"><span>Snitt '+avg+'</span><span>Pilar '+p.darts+'</span><span>Legs '+p.legs+'</span></div>'+coLine(p,i);
+    el.querySelector(".pn").textContent=p.name;
+    fillAv(el.querySelector(".av"),p.name,profiles()[p.name]);
+    el.addEventListener("click",()=>openEdit(i));
+    pl.appendChild(el);
+  });
+  const t=G.turn,p=G.players[G.cur];
+  $("turnLabel").textContent=G.winner!==null?"Leg avgjord":"Tur: "+p.name;
+  const sl=$("slots");sl.innerHTML="";
+  for(let i=0;i<3;i++){
+    const s=document.createElement("div");const d=t.darts[i];
+    s.className="slot"+(d?" f":"");s.textContent=d?d.label:"";sl.appendChild(s);
+  }
+  const sum=document.createElement("div");sum.className="slot sum";
+  sum.innerHTML="<small>Summa</small>"+(t.bust?"BUST":t.darts.reduce((s,d)=>s+d.v,0));
+  sl.appendChild(sum);
+  const m=$("msg");m.className="msg";m.textContent="";
+  if(G.winner!==null){m.className="msg win";m.textContent=G.players[G.winner].name+" vinner leget! Tryck Nästa leg.";}
+  else if(t.bust){m.className="msg bust";m.textContent="Bust – poängen återställs till "+t.start+".";}
+  else{
+    const co=checkout(p.score,3-t.darts.length,G.dbl);
+    if(co&&!t.done){m.className="msg co";m.innerHTML='<span class="label">'+(G.dbl?"Utgång ":"Kvar ")+p.score+'</span>'+co.map((d,k)=>'<span class="chip'+(k===0?" nx":"")+(d.m===2?" d":"")+'">'+d.label+'</span>').join("");}
+  }
+  $("btnNext").textContent=G.winner!==null?"Nästa leg":"Nästa spelare";
+  $("btnUndo").disabled=sess.role==="client"?!sess.undoN:!undo.length;
+  $("log").innerHTML="";
+  G.log.forEach(l=>{const d=document.createElement("div");d.textContent=l;$("log").appendChild(d);});
+  drawMarkers();
+}
+
+/* ---------- SVG board ---------- */
+const NS="http://www.w3.org/2000/svg";
+const svg=$("board");
+function pt(r,a){const rad=a*Math.PI/180;return [r*Math.sin(rad),-r*Math.cos(rad)];}
+function arc(r1,r2,a1,a2){
+  const [x1,y1]=pt(r2,a1),[x2,y2]=pt(r2,a2),[x3,y3]=pt(r1,a2),[x4,y4]=pt(r1,a1);
+  return "M"+x1+" "+y1+"A"+r2+" "+r2+" 0 0 1 "+x2+" "+y2+"L"+x3+" "+y3+"A"+r1+" "+r1+" 0 0 0 "+x4+" "+y4+"Z";
+}
+function buildBoard(){
+  const bg=document.createElementNS(NS,"circle");
+  bg.setAttribute("r","205");bg.setAttribute("fill","#0b0f0d");svg.appendChild(bg);
+  const C={dark:"#1b1d1c",light:"#e8dcbc",red:"#c63a33",grn:"#2f8452"};
+  ORDER.forEach((n,i)=>{
+    const a1=i*18-9,a2=i*18+9,even=i%2===0;
+    [[R.bo,R.ti,even?C.dark:C.light],[R.ti,R.to,even?C.red:C.grn],[R.to,R.di,even?C.dark:C.light],[R.di,R.do,even?C.red:C.grn]].forEach(([r1,r2,f])=>{
+      const p=document.createElementNS(NS,"path");p.setAttribute("d",arc(r1,r2,a1,a2));p.setAttribute("fill",f);svg.appendChild(p);
+    });
+    const [tx,ty]=pt(188,i*18);const t=document.createElementNS(NS,"text");
+    t.setAttribute("x",tx);t.setAttribute("y",ty);t.textContent=n;svg.appendChild(t);
+  });
+  [[R.bo,C.grn],[R.bi,C.red]].forEach(([r,f])=>{
+    const c=document.createElementNS(NS,"circle");c.setAttribute("r",r);c.setAttribute("fill",f);c.setAttribute("class","seg");svg.appendChild(c);
+  });
+  const g=document.createElementNS(NS,"g");g.id="marks";g.setAttribute("pointer-events","none");svg.appendChild(g);
+  svg.addEventListener("click",e=>{
+    const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;
+    const q=p.matrixTransform(svg.getScreenCTM().inverse());
+    const x=q.x,y=-q.y;
+    addDart(scoreAt(x,y),[x,y]);
+  });
+}
+function drawMarkers(){
+  const g=$("marks");if(!g)return;g.innerHTML="";
+  G.turn.darts.forEach(d=>{
+    if(!d.pos)return;
+    const c=document.createElementNS(NS,"circle");
+    c.setAttribute("cx",d.pos[0]);c.setAttribute("cy",-d.pos[1]);c.setAttribute("r","5");
+    c.setAttribute("fill","#f2b33d");c.setAttribute("stroke","#111");c.setAttribute("stroke-width","1.5");g.appendChild(c);
+  });
+}
+
+/* ---------- Pad ---------- */
+let mult=1;
+function buildPad(){
+  $("mult").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>setMult(+b.dataset.m)));
+  const nums=$("nums");
+  for(let n=1;n<=20;n++){
+    const b=document.createElement("button");b.textContent=n;
+    b.addEventListener("click",()=>{addDart(dart(mult,n));setMult(1);});nums.appendChild(b);
+  }
+  [["25",()=>dart(1,25)],["Bull",()=>dart(2,25)],["Miss",()=>dart(0,0)]].forEach(([l,f],i)=>{
+    const b=document.createElement("button");b.textContent=l;if(i===2)b.className="w2";
+    b.addEventListener("click",()=>{addDart(f());setMult(1);});nums.appendChild(b);
+  });
+}
+function setMult(m){mult=m;$("mult").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.m===m)));}
+
+/* ---------- Homography ---------- */
+function solve(A,b){
+  const n=b.length;A=A.map((r,i)=>r.concat([b[i]]));
+  for(let c=0;c<n;c++){
+    let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]];
+    if(Math.abs(A[c][c])<1e-12)return null;
+    for(let r=0;r<n;r++){if(r===c)continue;const f=A[r][c]/A[c][c];for(let k=c;k<=n;k++)A[r][k]-=f*A[c][k];}
+  }
+  return A.map((r,i)=>r[n]/r[i]);
+}
+function homography(s,d){
+  const A=[],b=[];
+  for(let i=0;i<4;i++){const [x,y]=s[i],[u,v]=d[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);
+    A.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v);}
+  const h=solve(A,b);if(!h)return null;h.push(1);return h;
+}
+function inv3(m){
+  const [a,b,c,d,e,f,g,h,i]=m;
+  const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,det=a*A+b*B+c*C;
+  return [A/det,-(b*i-c*h)/det,(b*f-c*e)/det,B/det,(a*i-c*g)/det,-(a*f-c*d)/det,C/det,-(a*h-b*g)/det,(a*e-b*d)/det];
+}
+function ap(H,x,y){const w=H[6]*x+H[7]*y+H[8];return [(H[0]*x+H[1]*y+H[2])/w,(H[3]*x+H[4]*y+H[5])/w];}
+
+/* ---------- Camera ---------- */
+const CAL_BOARD=[[0,170],[170,0],[0,-170],[-170,0]];
+const CAL_NAMES=["20 (överst)","6 (höger)","3 (nederst)","11 (vänster)"];
+const cv=$("cv"),ctx=cv.getContext("2d");
+const work=document.createElement("canvas"),wctx=work.getContext("2d",{willReadFrequently:true});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const cam={W:480,H:360,src:null,live:false,looping:false,stream:null,track:null,deviceId:store.get("dk_lens")||null,
+  pts:[],calib:false,Hm:null,Hi:null,mask:null,bx:null,by:null,maskN:0,base:0,
+  ref:null,emptyRef:null,rgba:null,prop:null,timer:null,lastGray:null,moving:false,lastMove:0,lastTick:0,lastCheck:0,
+  badChecks:0,needRef:true,waitSince:0,dirty:false,busy:false,wl:null,zoomed:false};
+
+function status(t,cls){const s=$("camStatus");s.textContent=t;s.className="status"+(cls?" "+cls:"");}
+function calKey(){return "dk_cal_"+(cam.live?(cam.deviceId||"std"):"photo");}
+function setSize(w,h,force){
+  const H=Math.round(cam.W*h/w);
+  if(force||H!==cam.H||!cam.Hm){cam.H=H;cv.width=cam.W;cv.height=H;work.width=cam.W;work.height=H;cam.ref=null;cam.emptyRef=null;cam.needRef=true;loadCalib();}
+}
+function grab(){
+  if(!cam.src)return null;
+  wctx.drawImage(cam.src,0,0,cam.W,cam.H);
+  // [gray | red-green | blue-green] so coloured flights show up on same-brightness fields
+  const n=cam.W*cam.H,d=wctx.getImageData(0,0,cam.W,cam.H).data,g=new Uint8Array(3*n);
+  for(let i=0,j=0;j<n;i+=4,j++){const r=d[i],gg=d[i+1],b=d[i+2];
+    g[j]=(r*77+gg*150+b*29)>>8;g[n+j]=(r-gg+255)>>1;g[2*n+j]=(b-gg+255)>>1;}
+  cam.rgba=d;return g;
+}
+// 1 = red, 2 = green, 0 = other
+function colorOf(d,i){
+  const r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+  if(r>70&&r>g+45&&r>b+35)return 1;
+  if(g>55&&g>r+22&&g>=b-5)return 2;
+  return 0;
+}
+function setH(H,silent){
+  cam.Hm=H;cam.Hi=inv3(H);
+  const W=cam.W,Ht=cam.H,n=W*Ht;
+  cam.mask=new Uint8Array(n);cam.bx=new Float32Array(n);cam.by=new Float32Array(n);cam.maskN=0;
+  for(let y=0;y<Ht;y++)for(let x=0;x<W;x++){
+    const i=y*W+x,[bx,by]=ap(cam.Hi,x+.5,y+.5);cam.bx[i]=bx;cam.by[i]=by;
+    if(Math.hypot(bx,by)<178){cam.mask[i]=1;cam.maskN++;}
+  }
+  if(cam.rgba)cam.base=boardScore(H);
+  store.set(calKey(),{W,H:Ht,Hm:H,base:cam.base});
+  cam.ref=null;cam.emptyRef=null;cam.needRef=true;cam.badChecks=0;
+}
+function loadCalib(){
+  cam.Hm=null;cam.mask=null;
+  const c=store.get(calKey());
+  if(c&&c.W===cam.W&&c.H===cam.H&&c.Hm){const b=c.base;setH(c.Hm);cam.base=b||0;}
+}
+// share of sampled double/treble segments with the expected colour (20 = red)
+function boardScore(H){
+  if(!cam.rgba)return 0;let ok=0,tot=0;
+  for(let i=0;i<20;i++){const phi=i*18*Math.PI/180;
+    for(const r of [166,103]){tot++;
+      const [x,y]=ap(H,r*Math.sin(phi),r*Math.cos(phi)),xi=Math.round(x),yi=Math.round(y);
+      if(xi<0||yi<0||xi>=cam.W||yi>=cam.H)continue;
+      if(colorOf(cam.rgba,yi*cam.W+xi)===(i%2===0?1:2))ok++;}}
+  return ok/tot;
+}
+function homographyLS(s,d){
+  // normalised least squares over all point pairs
+  const k=cam.W,M=Array.from({length:8},()=>new Array(8).fill(0)),v=new Array(8).fill(0);
+  for(let i=0;i<s.length;i++){
+    const x=s[i][0]/170,y=s[i][1]/170,u=d[i][0]/k,w=d[i][1]/k;
+    const rows=[[x,y,1,0,0,0,-u*x,-u*y,u],[0,0,0,x,y,1,-w*x,-w*y,w]];
+    for(const r of rows)for(let a=0;a<8;a++){v[a]+=r[a]*r[8];for(let b=0;b<8;b++)M[a][b]+=r[a]*r[b];}
+  }
+  const h=solve(M,v);if(!h)return null;
+  return [k*h[0]/170,k*h[1]/170,k*h[2],k*h[3]/170,k*h[4]/170,k*h[5],h[6]/170,h[7]/170,1];
+}
+// Finds the board from its red/green rings. Assumes the phone is roughly upright (20 at the top).
+function autoCalibrate(silent){
+  if(!cam.src){status("Starta kameran först.","w");return {ok:false};}
+  grab();
+  const W=cam.W,H=cam.H,d=cam.rgba,n=W*H,col=new Uint8Array(n);
+  let sx=0,sy=0,c=0;
+  for(let i=0;i<n;i++){const k=colorOf(d,i);col[i]=k;if(k){sx+=i%W;sy+=(i/W)|0;c++;}}
+  const fail=m=>{if(!silent)status(m,"w");return {ok:false};};
+  if(c<250)return fail("Hittar inte tavlans röda och gröna fält. Se till att hela tavlan syns och är väl belyst, eller kalibrera manuellt.");
+  let cx=sx/c,cy=sy/c,med=0;
+  for(let it=0;it<3;it++){
+    const ds=[];for(let i=0;i<n;i+=3)if(col[i])ds.push(Math.hypot(i%W-cx,((i/W)|0)-cy));
+    ds.sort((a,b)=>a-b);med=ds[ds.length>>1];const lim=1.8*med;let ax=0,ay=0,m=0;
+    for(let i=0;i<n;i++)if(col[i]){const x=i%W,y=(i/W)|0;if(Math.hypot(x-cx,y-cy)<lim){ax+=x;ay+=y;m++;}}
+    if(m)cx=ax/m,cy=ay/m;
+  }
+  const maxR=Math.hypot(W,H)/2,rad=new Float32Array(360);
+  for(let a=0;a<360;a++){
+    const t=a*Math.PI/180,dx=Math.sin(t),dy=-Math.cos(t);let last=0;
+    for(let s=2;s<maxR;s++){const x=Math.round(cx+dx*s),y=Math.round(cy+dy*s);
+      if(x<0||y<0||x>=W||y>=H)break;
+      if(s>2.5*med)break;
+      // the bull-to-treble gap is large, so only apply the gap rule once past the bull
+      if(col[y*W+x])last=s;else if(last>0.3*med&&s-last>Math.max(10,0.6*last))break;}
+    rad[a]=last;
+  }
+  const sm=new Float32Array(360);
+  for(let a=0;a<360;a++){const w=[];for(let k=-7;k<=7;k++)w.push(rad[(a+k+360)%360]);w.sort((p,q)=>p-q);sm[a]=w[7];}
+  const pt=a=>{const t=a*Math.PI/180,r=sm[a];return [cx+Math.sin(t)*r,cy-Math.cos(t)*r];};
+  let Hm=homography(CAL_BOARD,[pt(0),pt(90),pt(180),pt(270)]);
+  if(!Hm)return fail("Autokalibreringen misslyckades. Kalibrera manuellt.");
+  for(let it=0;it<3;it++){
+    const S=[],D=[],c0=ap(Hm,0,0);let Ls=0;
+    for(let k=0;k<60;k++){
+      const phi=k*6*Math.PI/180,bp=[170*Math.sin(phi),170*Math.cos(phi)],p=ap(Hm,bp[0],bp[1]);
+      const vx=p[0]-c0[0],vy=p[1]-c0[1],L=Math.hypot(vx,vy);if(L<15)continue;
+      const ux=vx/L,uy=vy/L;let last=0;
+      for(let s=L*0.8;s<L*1.2;s+=0.5){const x=Math.round(c0[0]+ux*s),y=Math.round(c0[1]+uy*s);
+        if(x<0||y<0||x>=W||y>=H)break;if(col[y*W+x])last=s;}
+      if(last>L*0.85){S.push(bp);D.push([c0[0]+ux*last,c0[1]+uy*last]);Ls+=L;}
+    }
+    if(S.length<12)break;
+    const rb=0.09*Ls/S.length;let bx=0,by=0,bm=0;
+    for(let y=Math.max(0,Math.floor(c0[1]-rb));y<Math.min(H,c0[1]+rb);y++)for(let x=Math.max(0,Math.floor(c0[0]-rb));x<Math.min(W,c0[0]+rb);x++)
+      if(col[y*W+x]&&Math.hypot(x-c0[0],y-c0[1])<rb){bx+=x;by+=y;bm++;}
+    if(bm>4){for(let r=0;r<4;r++){S.push([0,0]);D.push([bx/bm,by/bm]);}}
+    const h=homographyLS(S,D);if(h)Hm=h;
+  }
+  const score=boardScore(Hm);
+  if(score<0.5)return fail("Autokalibreringen blev osäker ("+Math.round(score*100)+" %). Justera kameran eller kalibrera manuellt.");
+  const edge=[[0,180],[180,0],[0,-180],[-180,0]].map(([x,y])=>ap(Hm,x,y));
+  const clipped=edge.some(([x,y])=>x<0||y<0||x>W||y>H);
+  const c0=ap(Hm,0,0),fill=2*edge.reduce((s,p)=>s+Math.hypot(p[0]-c0[0],p[1]-c0[1]),0)/4/Math.min(W,H);
+  setH(Hm);cam.base=score;store.set(calKey(),{W,H,Hm,base:score});
+  cam.pts=[];
+  if(!silent)status("Kalibrerad automatiskt ("+Math.round(score*100)+" % träff). Väntar på stilla bild för referens.");
+  drawCam();
+  return {ok:true,score,fill,clipped};
+}
+function drawCam(){
+  if(!cam.src)return;
+  ctx.drawImage(cam.src,0,0,cam.W,cam.H);
+  ctx.lineWidth=1.2;
+  if(cam.Hm&&!cam.calib){
+    ctx.strokeStyle="rgba(242,179,61,.7)";
+    [R.bi,R.bo,R.ti,R.to,R.di,R.do].forEach(r=>{
+      ctx.beginPath();for(let k=0;k<=72;k++){const a=k/72*2*Math.PI,[x,y]=ap(cam.Hm,r*Math.sin(a),r*Math.cos(a));k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+    });
+    for(let i=0;i<20;i++){const a=(i*18+9)*Math.PI/180;
+      const [x1,y1]=ap(cam.Hm,R.bo*Math.sin(a),R.bo*Math.cos(a)),[x2,y2]=ap(cam.Hm,R.do*Math.sin(a),R.do*Math.cos(a));
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+    const [lx,ly]=ap(cam.Hm,0,190);ctx.fillStyle="#f2b33d";ctx.font="bold 14px sans-serif";ctx.textAlign="center";ctx.fillText("20",lx,ly);
+  }
+  if(cam.calib){cam.pts.forEach(([x,y],i)=>{ctx.fillStyle="#f2b33d";ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fill();ctx.fillStyle="#000";ctx.font="bold 10px sans-serif";ctx.textAlign="center";ctx.fillText(String(i+1),x,y+3.5);});}
+  if(cam.prop&&cam.Hm){
+    if(cam.prop.blob){ctx.fillStyle="rgba(212,67,59,.55)";for(const i of cam.prop.blob)ctx.fillRect(i%cam.W,(i/cam.W)|0,1,1);}
+    const [x,y]=ap(cam.Hm,cam.prop.x,cam.prop.y);
+    ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-11,y);ctx.lineTo(x+11,y);ctx.moveTo(x,y-11);ctx.lineTo(x,y+11);ctx.stroke();
+  }
+}
+function loop(t){
+  if(!cam.live){cam.looping=false;return;}
+  drawCam();
+  if(cam.Hm&&!cam.calib&&!cam.busy&&t-cam.lastTick>250){cam.lastTick=t;autoTick(t);}
+  requestAnimationFrame(loop);
+}
+
+/* Lenses, stream, wake lock */
+async function wake(){
+  try{if(navigator.wakeLock&&!cam.wl){cam.wl=await navigator.wakeLock.request("screen");cam.wl.addEventListener("release",()=>{cam.wl=null;});}}catch(e){}
+}
+async function videoInputs(){
+  try{return (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");}catch(e){return [];}
+}
+async function backLenses(){
+  const ds=await videoInputs();
+  const back=ds.filter(d=>!/front|user|facetime|främre|selfie/i.test(d.label));
+  return back.length?back:ds;
+}
+async function fillLenses(){
+  const sel=$("selLens"),ds=await videoInputs();
+  sel.innerHTML='<option value="">Lins: bästa automatiskt</option>';
+  ds.forEach((d,i)=>{const o=document.createElement("option");o.value=d.deviceId;o.textContent=d.label||("Kamera "+(i+1));sel.appendChild(o);});
+  sel.value=store.get("dk_lens_manual")?(cam.deviceId||""):"";
+}
+async function openLive(deviceId){
+  if(cam.stream)cam.stream.getTracks().forEach(t=>t.stop());
+  const v={width:{ideal:1280},height:{ideal:720}};
+  if(deviceId)v.deviceId={exact:deviceId};else v.facingMode={ideal:"environment"};
+  const s=await navigator.mediaDevices.getUserMedia({video:v,audio:false});
+  const vid=$("vid");vid.srcObject=s;await vid.play();
+  cam.stream=s;cam.track=s.getVideoTracks()[0];
+  const st=cam.track.getSettings?cam.track.getSettings():{};
+  cam.deviceId=st.deviceId||deviceId||null;
+  cam.track.addEventListener("ended",()=>{if(store.get("dk_camOn"))setTimeout(()=>openLive(cam.deviceId).catch(()=>{}),500);});
+  try{const cap=cam.track.getCapabilities?cam.track.getCapabilities():{};
+    if(cap.focusMode&&cap.focusMode.includes("continuous"))await cam.track.applyConstraints({advanced:[{focusMode:"continuous"}]});}catch(e){}
+  cam.src=vid;cam.live=true;cam.zoomed=false;$("ph").hidden=true;$("btnLive").textContent="Stoppa kamera";
+  setSize(vid.videoWidth,vid.videoHeight,true);
+  sess.streamChanged();
+  wake();
+  if(!cam.looping){cam.looping=true;requestAnimationFrame(loop);}
+}
+async function maybeZoom(r){
+  // zoom in if the board fills little of the frame and the lens supports it
+  if(!r.ok||r.clipped||r.fill>0.5||cam.zoomed||!cam.track||!cam.track.getCapabilities)return r;
+  const cap=cam.track.getCapabilities();if(!cap.zoom)return r;
+  const curZ=(cam.track.getSettings().zoom)||cap.zoom.min||1;
+  const z=Math.min(cap.zoom.max,curZ*0.75/r.fill);if(z<curZ*1.15)return r;
+  try{await cam.track.applyConstraints({advanced:[{zoom:z}]});cam.zoomed=true;await sleep(900);
+    const r2=autoCalibrate(true);if(r2.ok)return r2;}catch(e){}
+  return r;
+}
+async function findBestLens(){
+  cam.busy=true;
+  const lenses=await backLenses();let best=null;
+  if(lenses.length>1){
+    for(const l of lenses){
+      status("Testar "+(l.label||"lins")+"…");
+      try{await openLive(l.deviceId);await sleep(1000);
+        const r=autoCalibrate(true);const sc=r.ok&&!r.clipped?Math.min(r.fill,0.9)*r.score:0;
+        if(!best||sc>best.sc)best={id:l.deviceId,sc,label:l.label};}catch(e){}
+    }
+    if(best&&best.id!==cam.deviceId){try{await openLive(best.id);await sleep(800);}catch(e){}}
+  }
+  let r=autoCalibrate(true);r=await maybeZoom(r);
+  store.set("dk_lens",cam.deviceId);cam.busy=false;
+  status(r.ok?"Klar"+(best&&best.label?" ("+best.label+")":"")+". Kalibrerad automatiskt. Kasta när bilden är stilla.":"Hittade inte tavlan automatiskt. Rikta kameran mot hela tavlan och tryck Autokalibrera, eller kalibrera manuellt.",r.ok?"":"w");
+  fillLenses();
+}
+async function startLive(){
+  if(cam.live){stopLive();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){status("Livekamera stöds inte här. Använd Ta foto, eller öppna appen fristående via https.","w");return;}
+  try{
+    status("Startar kameran…");
+    await openLive(cam.deviceId);
+    store.set("dk_camOn",true);tab(true);fillLenses();
+    if(!cam.Hm){
+      if(!store.get("dk_lens")&&!store.get("dk_lens_manual"))await findBestLens();
+      else{await sleep(800);const r=await maybeZoom(autoCalibrate());if(!r.ok)status("Hittade inte tavlan automatiskt. Rikta kameran mot hela tavlan och tryck Autokalibrera, eller kalibrera manuellt.","w");}
+    }else status("Kameran är igång med sparad kalibrering. Kasta när bilden är stilla.");
+  }catch(e){
+    status("Kameran kunde inte startas ("+(e.name||"fel")+"). Tillåt kameran för sidan, eller använd Ta foto.","w");
+  }
+}
+function stopLive(){
+  cam.live=false;store.set("dk_camOn",false);
+  if(cam.stream)cam.stream.getTracks().forEach(t=>t.stop());cam.stream=null;cam.track=null;
+  if(cam.wl){cam.wl.release().catch(()=>{});cam.wl=null;}
+  sess.streamChanged();
+  $("btnLive").textContent="Starta kamera";status("Kameran är avstängd.");
+}
+async function autoStart(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return;
+  let granted=false;
+  try{granted=(await navigator.permissions.query({name:"camera"})).state==="granted";}catch(e){}
+  if(granted||store.get("dk_camOn"))startLive();
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="visible"||!store.get("dk_camOn"))return;
+  if(!cam.track||cam.track.readyState!=="live")openLive(cam.deviceId).catch(()=>{});
+  else wake();
+});
+
+/* Photos (fallback where live camera is blocked) */
+function onPhoto(file){
+  if(!file)return;
+  const img=new Image();
+  img.onload=()=>{
+    if(cam.live)stopLive();
+    cam.src=img;$("ph").hidden=true;setSize(img.naturalWidth,img.naturalHeight);drawCam();
+    if(!cam.Hm){const r=autoCalibrate();if(!r.ok)return;}
+    const g=grab();
+    if(!cam.ref||cam.needRef){takeRef(g);status("Referens tagen. Kasta och ta ett nytt foto från exakt samma position.");}
+    else{const r=detect(g);if(r.err)status(r.err==="big"?"För stor skillnad mot förra fotot. Rörde sig telefonen?":r.err,"w");else propose(r,false);}
+  };
+  img.src=URL.createObjectURL(file);
+}
+
+/* Calibration by hand */
+function startCalib(){
+  if(!cam.src){status("Starta kameran eller ta ett foto först.","w");return;}
+  cam.calib=true;cam.pts=[];clearProp();
+  status("Tryck på dubbelringens ytterkant mitt på "+CAL_NAMES[0]+".");drawCam();
+}
+
+/* Reference, detection, proposals */
+function changed(a,b){
+  const thr=+$("rngThr").value,n=cam.W*cam.H;let c=0;
+  for(let i=0;i<n;i++)if(cam.mask[i]&&Math.abs(a[i]-b[i])>thr)c++;
+  return c;
+}
+function takeRef(g){cam.ref=g;cam.emptyRef=g;cam.needRef=false;cam.waitSince=0;}
+function setRefNow(){
+  if(!cam.src){status("Starta kameran eller ta ett foto först.","w");return;}
+  takeRef(grab());clearProp();status("Referens tagen. Kasta!");
+}
+function detect(cur){
+  const W=cam.W,H=cam.H,n=W*H,ref=cam.ref,thr=+$("rngThr").value;
+  const raw=new Uint8Array(n);
+  for(let i=0;i<n;i++)if(cam.mask[i]&&(Math.abs(cur[i]-ref[i])>thr||Math.abs(cur[n+i]-ref[n+i])*2>thr||Math.abs(cur[2*n+i]-ref[2*n+i])*2>thr))raw[i]=1;
+  // dilate 3x3 so a thin shaft stays connected to the flight
+  const dil=new Uint8Array(n);
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;
+    if(raw[i]||raw[i-1]||raw[i+1]||raw[i-W]||raw[i+W]||raw[i-W-1]||raw[i-W+1]||raw[i+W-1]||raw[i+W+1])dil[i]=1;}
+  const seen=new Uint8Array(n);let best=null,total=0;
+  for(let i=0;i<n;i++){
+    if(!dil[i]||seen[i])continue;
+    const comp=[],st=[i];seen[i]=1;
+    while(st.length){const k=st.pop();if(raw[k])comp.push(k);const x=k%W;
+      if(x>0&&dil[k-1]&&!seen[k-1]){seen[k-1]=1;st.push(k-1);}
+      if(x<W-1&&dil[k+1]&&!seen[k+1]){seen[k+1]=1;st.push(k+1);}
+      if(k>=W&&dil[k-W]&&!seen[k-W]){seen[k-W]=1;st.push(k-W);}
+      if(k<n-W&&dil[k+W]&&!seen[k+W]){seen[k+W]=1;st.push(k+W);}}
+    total+=comp.length;
+    if(!best||comp.length>best.length)best=comp;
+  }
+  if(!best||best.length<10)return {err:"Ingen pil hittades. Höj känsligheten eller mata in manuellt.",cur};
+  if(total>cam.maskN*0.12)return {err:"big",cur};
+  const dir=$("selDir").value,bx=cam.bx,by=cam.by;
+  const key=dir==="top"?i=>by[i]:dir==="bottom"?i=>-by[i]:dir==="left"?i=>-bx[i]:i=>bx[i];
+  const top=best.slice().sort((a,b)=>key(b)-key(a)).slice(0,3);
+  const x=top.reduce((s,i)=>s+bx[i],0)/top.length,y=top.reduce((s,i)=>s+by[i],0)/top.length;
+  return {x,y,cur,blob:best};
+}
+function detectNow(){
+  if(!cam.src){status("Starta kameran eller ta ett foto först.","w");return;}
+  if(!cam.Hm){status("Kalibrera först.","w");return;}
+  if(!cam.ref){status("Ta en referens av tom tavla först.","w");return;}
+  const r=detect(grab());
+  if(r.err){status(r.err==="big"?"För stor förändring i bilden. Är en hand i bild, eller har kameran rört sig?":r.err,"w");return;}
+  propose(r,false);
+}
+function clearProp(){clearTimeout(cam.timer);cam.prop=null;$("prop").hidden=true;}
+function propose(r,fromTap){
+  clearTimeout(cam.timer);
+  cam.prop=r;const d=scoreAt(r.x,r.y);
+  $("propV").textContent=d.label+(d.v?" ("+d.v+")":"");$("prop").hidden=false;$("propT").textContent="";
+  status("Förslag: "+d.label+". Tryck i bilden för att rätta.");drawCam();
+  if($("chkAutoAccept").checked){
+    let left=fromTap?1:2;
+    const tick=()=>{if(cam.prop!==r)return;if(left<=0){accept();return;}$("propT").textContent="Godkänns om "+left+" s";left--;cam.timer=setTimeout(tick,1000);};
+    tick();
+  }
+}
+function accept(){
+  if(!cam.prop)return;const p=cam.prop;
+  clearProp();cam.ref=p.cur;
+  addDart(scoreAt(p.x,p.y),[p.x,p.y],true);
+  status(G.winner!==null?"Leg avgjort!":G.turn.done?"Turen är klar. Dra ut pilarna.":"Registrerad. Kasta nästa pil.");
+  drawCam();
+}
+function reject(){clearProp();status("Förslaget avvisat. Kasta igen eller mata in manuellt.");drawCam();}
+
+/* Automatic flow: motion -> still -> reference / detection / turn change */
+function autoTick(t){
+  const g=grab();if(!g)return;
+  if(cam.lastGray){
+    const thr=+$("rngThr").value;let c=0;
+    for(let i=0;i<cam.W*cam.H;i+=2)if(cam.mask[i]&&Math.abs(g[i]-cam.lastGray[i])>thr)c++;
+    if(c>15){cam.moving=true;cam.lastMove=t;}
+    else if(t-cam.lastMove>800){
+      if(cam.moving||cam.dirty||cam.needRef||!cam.ref){cam.moving=false;cam.dirty=false;onSettled(g,t);}
+      else if(t-cam.lastCheck>4000){cam.lastCheck=t;driftCheck();}
+    }
+  }
+  cam.lastGray=g;
+}
+function onSettled(g,t){
+  if(cam.prop){cam.dirty=true;return;}
+  if(!cam.ref||cam.needRef){
+    // wait until the board looks empty again (darts pulled), max 20 s
+    if(cam.emptyRef&&G.turn.darts.length===0&&changed(g,cam.emptyRef)>60){
+      if(!cam.waitSince)cam.waitSince=t;
+      if(t-cam.waitSince<20000){cam.dirty=true;status("Dra ut pilarna från tavlan.");return;}
+    }
+    takeRef(g);status("Redo. "+G.players[G.cur].name+" kastar.");return;
+  }
+  if(!$("chkAuto").checked)return;
+  const turn=G.turn;
+  if(cam.emptyRef&&turn.darts.length>0&&changed(g,cam.emptyRef)<40){
+    takeRef(g);
+    if($("chkAutoNext").checked&&G.winner===null){nextPlayer();cam.needRef=false;status("Pilarna utdragna. "+G.players[G.cur].name+" kastar.");}
+    return;
+  }
+  if(turn.done||G.winner!==null)return;
+  const r=detect(g);
+  if(!r.err)propose(r,false);
+  else if(r.err==="big")status("Stor förändring i bilden. Väntar på stilla bild.","w");
+}
+function driftCheck(){
+  if(!cam.live||!cam.Hm||cam.base<0.4||cam.prop)return;
+  const sc=boardScore(cam.Hm);
+  if(sc<cam.base*0.6){
+    if(++cam.badChecks<2)return;
+    cam.badChecks=0;status("Kameran verkar ha flyttats. Kalibrerar om…","w");
+    const r=autoCalibrate(true);
+    status(r.ok?"Omkalibrerad automatiskt.":"Kameran har flyttats och tavlan hittades inte automatiskt. Kalibrera manuellt.",r.ok?"":"e");
+  }else cam.badChecks=0;
+}
+cam.onNewTurn=function(){clearProp();cam.needRef=true;cam.waitSince=0;};
+cam.afterManual=function(){clearProp();if(cam.live&&cam.ref&&cam.mask)cam.ref=grab();};
+cv.addEventListener("click",e=>{
+  if(!cam.src)return;
+  const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*cv.width/r.width,y=(e.clientY-r.top)*cv.height/r.height;
+  if(cam.calib){
+    cam.pts.push([x,y]);
+    if(cam.pts.length<4)status("Tryck på dubbelringens ytterkant mitt på "+CAL_NAMES[cam.pts.length]+".");
+    else{cam.calib=false;const H=homography(CAL_BOARD,cam.pts);
+      if(H){grab();setH(H);status("Kalibrerad. Kontrollera att ringarna ligger över tavlan.");}
+      else status("Kalibreringen misslyckades. Försök igen och tryck noggrant.","e");}
+    drawCam();return;
+  }
+  if(cam.Hm){
+    const [bx,by]=ap(cam.Hi,x,y);
+    propose({x:bx,y:by,cur:cam.prop?cam.prop.cur:grab(),blob:null},true);
+  }
+});
+
+/* ---------- Shared session between devices (PeerJS / WebRTC) ---------- */
+// The host (normally the camera phone) owns the game. Other devices send actions to it
+// and receive the full state back, plus the live camera picture.
+const sess=(function(){
+  const PFX="trebleeye-",ALPHA="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let role=null,peer=null,code=null,conns=[],hostConn=null,pending=[],flushT=null,undoN=0,retryT=null,msg="";
+  const calls={},orig={};
+  const ok=()=>typeof Peer!=="undefined";
+  const devLabel=()=>{const u=navigator.userAgent;return /iPad|Macintosh/.test(u)&&"ontouchend" in document?"iPad":/iPhone/.test(u)?"iPhone":/Android/.test(u)?"Android":"Dator";};
+  function mkCode(){let s="";for(let i=0;i<4;i++)s+=ALPHA[Math.floor(Math.random()*ALPHA.length)];return s;}
+  function joinUrl(){return location.origin+location.pathname+"#join-"+code;}
+
+  /* host side */
+  function photos(){const pr=profiles(),o={};G.players.forEach(p=>{if(pr[p.name])o[p.name]=pr[p.name];});return o;}
+  function stateMsg(){return {t:"state",G,undoN:undo.length,photos:photos()};}
+  function sendAll(m){conns.forEach(c=>{if(c.open){try{c.send(m);}catch(e){}}});}
+  function flush(){flushT=null;if(role!=="host")return;sendAll(stateMsg());pending.forEach(sendAll);pending=[];}
+  function changed(){if(role==="host"&&conns.length&&!flushT)flushT=setTimeout(flush,0);}
+  function ev(e,a){if(role!=="host"||!conns.length)return;pending.push({t:"ev",e,a:JSON.parse(JSON.stringify(a))});changed();}
+  function callPeer(id){
+    if(calls[id]){try{calls[id].close();}catch(e){}delete calls[id];}
+    if(role==="host"&&peer&&cam.stream&&cam.live)calls[id]=peer.call(id,cam.stream);
+  }
+  function streamChanged(){if(role==="host")conns.forEach(c=>callPeer(c.peer));}
+  function host(reuse){
+    if(!ok()){setMsg("Delad session fungerar bara i appen från GitHub-adressen.");return;}
+    leave(true);
+    code=reuse||mkCode();role="host";setMsg("Startar session…");
+    peer=new Peer(PFX+code);
+    peer.on("open",()=>{setMsg("");store.set("dk_sess",{role:"host",code});ui();});
+    peer.on("error",e=>{
+      if(e.type==="unavailable-id"){
+        // after a reload the old id can linger for a moment: retry the same code, then give up on it
+        const n=(host.tries=(host.tries||0)+1);try{peer.destroy();}catch(_){}
+        if(reuse&&n<6){setTimeout(()=>host(reuse),2500);return;}
+        host.tries=0;host();return;
+      }
+      if(e.type==="network"||e.type==="server-error"||e.type==="socket-error")setMsg("Kopplingsservern svarar inte. Kontrollera internet och försök igen.");
+    });
+    peer.on("disconnected",()=>{if(role==="host")setTimeout(()=>{try{peer.reconnect();}catch(_){}},1500);});
+    peer.on("connection",c=>{
+      c.on("open",()=>{conns.push(c);c.send(stateMsg());callPeer(c.peer);ui();});
+      c.on("data",m=>onAct(m,c));
+      c.on("close",()=>{conns=conns.filter(x=>x!==c);if(calls[c.peer]){try{calls[c.peer].close();}catch(_){}delete calls[c.peer];}ui();});
+    });
+    ui();
+  }
+  function onAct(m,c){
+    if(!m||typeof m!=="object")return;
+    if(m.t==="hello"){c.label=String(m.label||"Enhet").slice(0,20);ui();return;}
+    if(m.t!=="act")return;
+    if(m.a==="dart"&&m.d&&[0,1,2,3].includes(m.d.m)&&(m.d.n===25||m.d.n===0||(m.d.n>=1&&m.d.n<=20)))
+      addDart(dart(m.d.m,m.d.n),Array.isArray(m.pos)?m.pos:null);
+    else if(m.a==="undo")doUndo();
+    else if(m.a==="next")nextPlayer();
+    else if(m.a==="newgame"&&m.cfg&&Array.isArray(m.cfg.names)){
+      newGame({start:[301,501,701].includes(m.cfg.start)?m.cfg.start:501,dbl:!!m.cfg.dbl,names:m.cfg.names.slice(0,4).map(n=>String(n).slice(0,24))});
+      cam.onNewTurn();caller.gameOn();
+    }
+    else if(m.a==="rename"&&G.players[m.i]){
+      const name=String(m.name||"").slice(0,24).trim();if(!name)return;
+      G.players[m.i].name=name;
+      if(typeof m.photo==="string"&&m.photo.startsWith("data:image/"))saveProfile(name,m.photo);else if(m.photo===null)saveProfile(name,null);
+      save();render();
+    }
+  }
+
+  /* client side */
+  function join(c){
+    if(!ok()){setMsg("Delad session fungerar bara i appen från GitHub-adressen.");return;}
+    c=String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(c.length!==4){setMsg("Koden består av fyra tecken.");return;}
+    leave(true);code=c;role="client";store.set("dk_sess",{role:"client",code});setMsg("Ansluter till "+code+"…");
+    if(cam.live)stopLive();
+    peer=new Peer();
+    peer.on("open",connect);
+    peer.on("call",call=>{call.answer();call.on("stream",s=>showRemote(s));call.on("close",()=>showRemote(null));});
+    peer.on("error",e=>{
+      if(e.type==="peer-unavailable"){setMsg("Hittar ingen session "+code+". Försöker igen…");retry();}
+      else if(e.type==="network"||e.type==="server-error"||e.type==="socket-error"){setMsg("Kopplingsservern svarar inte. Försöker igen…");retry();}
+    });
+    peer.on("disconnected",()=>{if(role==="client")setTimeout(()=>{try{peer.reconnect();}catch(_){}},1500);});
+    ui();
+  }
+  function connect(){
+    if(role!=="client"||!peer||peer.destroyed)return;
+    hostConn=peer.connect(PFX+code,{reliable:true});
+    hostConn.on("open",()=>{clearTimeout(retryT);setMsg("");hostConn.send({t:"hello",label:devLabel()});ui();});
+    hostConn.on("data",onHostMsg);
+    hostConn.on("close",()=>{if(role!=="client")return;setMsg("Tappade kontakten med värden. Återansluter…");showRemote(null);retry();});
+  }
+  function retry(){clearTimeout(retryT);retryT=setTimeout(()=>{if(role!=="client")return;if(peer&&peer.disconnected){try{peer.reconnect();}catch(_){}}connect();},3000);}
+  function onHostMsg(m){
+    if(!m||typeof m!=="object")return;
+    if(m.t==="state"&&m.G&&Array.isArray(m.G.players)){
+      G=m.G;undoN=m.undoN|0;
+      if(m.photos&&typeof m.photos==="object"){const pr=profiles();
+        Object.keys(m.photos).forEach(n=>{const ph=m.photos[n];if(typeof ph==="string"&&ph.startsWith("data:image/")&&pr[n]!==ph)saveProfile(n,ph);});}
+      render();
+    }else if(m.t==="ev"&&orig[m.e]&&Array.isArray(m.a))orig[m.e](...m.a);
+  }
+  function send(act){
+    if(hostConn&&hostConn.open){hostConn.send(Object.assign({t:"act"},act));return true;}
+    setMsg("Inte ansluten till värden just nu.");ui();return false;
+  }
+  function showRemote(stream){
+    const box=$("remoteBox"),v=$("remoteVid");
+    if(stream){v.srcObject=stream;box.hidden=false;v.play().catch(()=>{});}
+    else{v.srcObject=null;box.hidden=true;}
+  }
+
+  function leave(silent){
+    clearTimeout(retryT);
+    Object.keys(calls).forEach(k=>{try{calls[k].close();}catch(_){}delete calls[k];});
+    conns.forEach(c=>{try{c.close();}catch(_){}});conns=[];
+    if(hostConn){try{hostConn.close();}catch(_){}hostConn=null;}
+    if(peer){try{peer.destroy();}catch(_){}peer=null;}
+    const was=role;role=null;code=null;
+    if(!silent){store.set("dk_sess",null);setMsg("");}
+    showRemote(null);
+    if(was==="client"){const g=store.get("dk_game");if(g&&g.players)G=g;undo=[];render();}
+    ui();
+  }
+
+  /* UI */
+  function setMsg(t){msg=t;const el=$("sessMsg");if(el){el.textContent=t;el.hidden=!t;}chip();}
+  function chip(){
+    const c=$("sessChip");if(!c)return;
+    $("btnSess").hidden=!!role;$("btnJoin").hidden=!!role;
+    if(!role){c.hidden=true;return;}
+    c.hidden=false;
+    const live=role==="host"?(peer&&peer.open):(hostConn&&hostConn.open);
+    c.className="chipbtn"+(live?" live":"");
+    c.textContent=role==="host"?"Värd · "+code+" · "+conns.length+" anslutna":live?"Ansluten · "+code:"Återansluter · "+code;
+  }
+  function ui(){
+    chip();
+    if(!$("sessPanel"))return;
+    $("sessIdle").hidden=!!role;$("sessHostBox").hidden=role!=="host";$("sessClientBox").hidden=role!=="client";
+    if(role==="host"){
+      $("sessCodeBig").textContent=code;
+      const qr=$("sessQR");
+      if(qr.dataset.code!==code&&typeof qrcode!=="undefined"){
+        const q=qrcode(0,"M");q.addData(joinUrl());q.make();
+        qr.innerHTML=q.createSvgTag({cellSize:6,margin:3,scalable:true});qr.dataset.code=code;
+      }
+      $("sessLink").textContent=joinUrl();
+      $("sessDevs").textContent=conns.length?"Anslutna: "+conns.map(c=>c.label||"Enhet").join(", "):"Inga enheter anslutna än. Skanna QR-koden eller ange koden på den andra enheten.";
+    }
+    if(role==="client")$("sessClientTxt").textContent=hostConn&&hostConn.open?"Ansluten till session "+code+". Poäng du matar in här skickas till värden.":"Ansluter till session "+code+"…";
+  }
+
+  /* QR scanner for joining (jsQR is loaded only when needed) */
+  let scanStream=null,scanTimer=null;
+  function loadJsQR(){return new Promise((res,rej)=>{if(typeof jsQR!=="undefined")return res();const s=document.createElement("script");s.src="lib/jsQR.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+  async function scan(){
+    if(scanStream){stopScan();return;}
+    try{
+      await loadJsQR();
+      scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+      const v=$("scanVid");v.srcObject=scanStream;await v.play();$("scanBox").hidden=false;$("sessScan").textContent="Avbryt skanning";
+      const c=document.createElement("canvas"),x=c.getContext("2d",{willReadFrequently:true});
+      scanTimer=setInterval(()=>{
+        if(!v.videoWidth)return;const w=480,h=Math.round(480*v.videoHeight/v.videoWidth);c.width=w;c.height=h;x.drawImage(v,0,0,w,h);
+        const r=jsQR(x.getImageData(0,0,w,h).data,w,h);
+        if(r&&r.data){const m=r.data.match(/#join-([A-Za-z0-9]{4})/)||r.data.trim().match(/^([A-Za-z0-9]{4})$/);if(m){stopScan();join(m[1]);}}
+      },250);
+    }catch(e){stopScan();setMsg("Kunde inte starta kameran för skanning. Skriv in koden i stället.");}
+  }
+  function stopScan(){clearInterval(scanTimer);if(scanStream)scanStream.getTracks().forEach(t=>t.stop());scanStream=null;$("scanBox").hidden=true;$("sessScan").textContent="Skanna QR";}
+
+  function wrapCaller(){
+    ["dart","turnDone","turnStart","gameOn"].forEach(k=>{const f=caller[k].bind(caller);orig[k]=f;caller[k]=(...a)=>{ev(k,a);return f(...a);};});
+  }
+  function boot(){
+    wrapCaller();
+    const m=location.hash.match(/^#join-([A-Za-z0-9]{4})$/);
+    if(m){history.replaceState(null,"",location.pathname);join(m[1]);return;}
+    const s=store.get("dk_sess");
+    if(s&&s.code){if(s.role==="host")host(s.code);else if(s.role==="client")join(s.code);}
+  }
+  return {host,join,leave,send,ev,changed,streamChanged,scan,ui,boot,
+    get role(){return role;},get undoN(){return undoN;},get available(){return ok();}};
+})();
+
+/* ---------- Caller voices (voices.json in the repo decides what users can pick) ---------- */
+// status: "public" = everyone, "preview" = admin only (still being tested), "hidden" = admin only
+const VOICE_FALLBACK=[{id:"george",name:"George",status:"public"},{id:"lewis",name:"Lewis",status:"public"},{id:"daniel",name:"Daniel",status:"public"},{id:"fable",name:"Fable",status:"public"}];
+let VOICES=store.get("dk_voices")||VOICE_FALLBACK;
+async function loadVoices(){
+  if(admin.on&&gh.token){voiceAdmin.refresh();return;}   // admins read the repo directly, without the Pages delay
+  try{
+    const r=await fetch("voices.json",{cache:"no-store"});if(!r.ok)return;
+    const j=await r.json();if(!j||!Array.isArray(j.voices))return;
+    VOICES=j.voices.filter(v=>v&&typeof v.id==="string"&&/^[a-z0-9-]+$/.test(v.id));store.set("dk_voices",VOICES);
+    fillVoiceSelect();renderVoiceAdmin();
+  }catch(e){}
+}
+const STATUS_TXT={public:"publicerad",preview:"förhand",hidden:"dold"};
+
+/* Admin mode shows voices that are not public yet (tap the version number 7 times) */
+const admin={
+  get on(){return !!store.get("dk_admin");},
+  toggle(){store.set("dk_admin",!this.on);fillVoiceSelect();if(!this.on)$("voiceAdmin").hidden=true;fx.flash(this.on?"ADMIN PÅ":"ADMIN AV");}
+};
+(function(){let n=0,t=0;$("appVer").addEventListener("click",()=>{const now=Date.now();n=now-t<1500?n+1:1;t=now;if(n>=7){n=0;admin.toggle();}});})();
+function fillVoiceSelect(){
+  const sel=$("selVoice"),cur=caller.lang==="pro"?"pro:"+audio.voice:caller.lang;
+  sel.querySelectorAll("option[data-voice],option[value=admin]").forEach(o=>o.remove());
+  const first=sel.firstChild;
+  VOICES.filter(v=>v.status==="public"||admin.on).forEach(v=>{
+    const o=document.createElement("option");o.value="pro:"+v.id;o.dataset.voice="1";
+    // users only see the name; admins also see which voices are not public yet
+    o.textContent="Röst: "+v.name+(v.status==="public"?"":" · "+STATUS_TXT[v.status]);
+    sel.insertBefore(o,first);
+  });
+  // iOS ignores hidden <option>s, so the admin entry is added and removed instead
+  if(admin.on){const o=document.createElement("option");o.value="admin";o.textContent="Hantera röster (admin)…";sel.appendChild(o);}
+  sel.value=cur;
+  if(sel.value!==cur){const fb=VOICES.find(v=>v.status==="public")||VOICE_FALLBACK[0];sel.value="pro:"+fb.id;if(cur.startsWith("pro:"))audio.setVoice(fb.id);}
+}
+/* ---------- GitHub connection for admins (voices.json edits and voice jobs) ---------- */
+// The admin's own fine-grained token (Contents + Actions on this repo) is kept on this device only.
+const gh={
+  OWNER:"tomdooley93-max",REPO:"TrebleEye",
+  get token(){return store.get("dk_ghtoken")||"";},
+  set token(v){store.set("dk_ghtoken",v||null);},
+  async api(path,opt){
+    opt=opt||{};
+    const h={"Accept":"application/vnd.github+json","Authorization":"Bearer "+this.token,"X-GitHub-Api-Version":"2022-11-28"};
+    if(opt.body)h["Content-Type"]="application/json";
+    let r;
+    try{r=await fetch("https://api.github.com/repos/"+this.OWNER+"/"+this.REPO+path,{method:opt.method||"GET",headers:h,body:opt.body,cache:"no-store"});}
+    catch(e){throw new Error("Ingen kontakt med GitHub. Kontrollera internet.");}
+    if(!r.ok){
+      let m="";try{m=(await r.json()).message||"";}catch(_){}
+      const e=new Error(r.status===401?"GitHub-nyckeln godtogs inte. Skapa en ny och klistra in den.":
+        r.status===403||r.status===404?"Nyckeln saknar behörighet till TrebleEye (Contents och Actions: Read and write).":
+        "GitHub svarade "+r.status+(m?": "+m:""));
+      e.status=r.status;throw e;
+    }
+    return r.status===204?null:r.json();
+  },
+  async readVoices(){
+    const j=await this.api("/contents/voices.json?ref=main");
+    const bytes=Uint8Array.from(atob(j.content.replace(/\n/g,"")),c=>c.charCodeAt(0));
+    return {data:JSON.parse(new TextDecoder().decode(bytes)),sha:j.sha};
+  },
+  // read, change and write voices.json; retries if a voice job wrote it at the same time
+  async editVoices(fn,message){
+    for(let i=0;i<3;i++){
+      const {data,sha}=await this.readVoices();fn(data);
+      const txt=JSON.stringify(data,null,2)+"\n",u=new TextEncoder().encode(txt);let bin="";u.forEach(b=>bin+=String.fromCharCode(b));
+      try{await this.api("/contents/voices.json",{method:"PUT",body:JSON.stringify({message,content:btoa(bin),sha,branch:"main"})});return data;}
+      catch(e){if((e.status===409||e.status===422)&&i<2)continue;throw e;}
+    }
+  },
+  dispatch(inputs){return this.api("/actions/workflows/voice.yml/dispatches",{method:"POST",body:JSON.stringify({ref:"main",inputs})});},
+  runs(){return this.api("/actions/workflows/voice.yml/runs?per_page=5");}
+};
+
+const voiceAdmin=(function(){
+  let pollT=null;
+  const OPENAI_VOICES=["onyx","ash","echo","ballad","verse","fable","sage","alloy","coral","nova","shimmer"];
+  function msg(t,cls){const el=$("vaMsg");el.textContent=t;el.className="status"+(cls?" "+cls:"");el.hidden=!t;}
+  function setVoices(list){VOICES=list.filter(v=>v&&typeof v.id==="string"&&/^[a-z0-9-]+$/.test(v.id));store.set("dk_voices",VOICES);fillVoiceSelect();render();}
+  async function refresh(){
+    if(!gh.token){render();return;}
+    try{const {data}=await gh.readVoices();setVoices(data.voices||[]);}catch(e){msg(e.message,"e");}
+    runs();
+  }
+  async function change(id,fn,label){
+    msg(label+"…");
+    try{const d=await gh.editVoices(data=>{fn(data);},label);setVoices(d.voices);msg(label+". Ändringen syns för alla inom några minuter.");}
+    catch(e){msg(e.message,"e");}
+  }
+  function render(){
+    const connected=!!gh.token;
+    $("vaConnect").hidden=connected;$("vaTools").hidden=!connected;
+    const box=$("voiceList");box.innerHTML="";
+    VOICES.forEach(v=>{
+      const row=document.createElement("div");row.className="packrow";
+      const t=document.createElement("div");t.className="pk";
+      const badge=document.createElement("span");badge.className="badge "+v.status;badge.textContent=STATUS_TXT[v.status]||v.status;
+      const nm=document.createElement("b");nm.textContent=v.name;
+      const meta=document.createElement("span");meta.className="meta2";meta.textContent=(v.clips||0)+" klipp"+(v.takes>1?" ×"+v.takes:"")+(v.voice?" · "+v.voice:"");
+      t.append(nm," ",badge," ",meta);row.appendChild(t);
+      const play=document.createElement("button");play.textContent="Provlyssna";
+      play.onclick=async()=>{const n=Math.max(1,Math.min(3,v.takes|0||1));
+        try{for(const c of ["s180","r144","gameshot"])for(let k=1;k<=n;k++)await audio.playUrl("audio/"+v.id+"/"+(k>1?c+"_"+k:c)+".mp3");}catch(e){fx.flash("SAKNAS");}};
+      row.appendChild(play);
+      if(connected){
+        const pub=document.createElement("button");
+        if(v.status==="public"){pub.textContent="Dölj";pub.onclick=()=>{
+          if(VOICES.filter(x=>x.status==="public").length<=1){msg("Minst en röst måste vara publicerad.","w");return;}
+          change(v.id,d=>{d.voices.forEach(x=>{if(x.id===v.id)x.status="hidden";});},"Dolde "+v.name);};}
+        else{pub.textContent="Publicera";pub.className="pri";pub.disabled=(v.clips||0)<345;pub.title=pub.disabled?"Skapa alla klipp först":"";
+          pub.onclick=()=>change(v.id,d=>{d.voices.forEach(x=>{if(x.id===v.id)x.status="public";});},"Publicerade "+v.name);}
+        const del=document.createElement("button");del.className="dng";del.textContent="Ta bort";
+        del.onclick=()=>{
+          if(!del.dataset.sure){del.dataset.sure="1";del.textContent="Bekräfta";setTimeout(()=>{delete del.dataset.sure;del.textContent="Ta bort";},3000);return;}
+          if(v.status==="public"&&VOICES.filter(x=>x.status==="public").length<=1){msg("Minst en röst måste vara publicerad.","w");return;}
+          // removes the voice from the app; its sound files stay in the repository
+          change(v.id,d=>{d.voices=d.voices.filter(x=>x.id!==v.id);},"Tog bort "+v.name+" från appen");
+        };
+        row.append(pub,del);
+      }
+      box.appendChild(row);
+    });
+  }
+  async function runs(){
+    if(!gh.token||$("voiceAdmin").hidden)return;
+    try{
+      const j=await gh.runs(),box=$("vaRuns");box.innerHTML="";
+      (j.workflow_runs||[]).slice(0,5).forEach(r=>{
+        const d=document.createElement("div");d.className="runrow";
+        const st=r.status!=="completed"?"pågår":r.conclusion==="success"?"klart":"misslyckades";
+        const a=document.createElement("a");a.href=r.html_url;a.target="_blank";a.rel="noopener";a.textContent=r.display_title||r.name;
+        const s=document.createElement("span");s.className="badge "+(st==="klart"?"public":st==="pågår"?"preview":"fail");s.textContent=st;
+        const when=document.createElement("span");when.className="meta2";when.textContent=new Date(r.created_at).toLocaleTimeString("sv-SE",{hour:"2-digit",minute:"2-digit"});
+        d.append(s," ",a," ",when);box.appendChild(d);
+      });
+      const busy=(j.workflow_runs||[]).some(r=>r.status!=="completed");
+      if(runs.wasBusy&&!busy)refresh();   // a job just finished: reload the voice list
+      runs.wasBusy=busy;
+      clearTimeout(pollT);pollT=setTimeout(runs,busy?10000:30000);
+    }catch(e){}
+  }
+  async function connect(){
+    const t=($("vaToken").value||"").trim();if(!t){msg("Klistra in din GitHub-nyckel.","w");return;}
+    gh.token=t;msg("Kontrollerar nyckeln…");
+    try{await gh.api("");await gh.readVoices();msg("Ansluten till GitHub.");$("vaToken").value="";refresh();}
+    catch(e){gh.token="";msg(e.message,"e");render();}
+  }
+  function disconnect(){gh.token="";msg("Nyckeln är borttagen från den här enheten.");render();}
+  async function job(action){
+    const name=($("vaName").value||"").trim();if(!name){msg("Skriv ett namn på rösten.","w");return;}
+    const inputs={action,name,voice:$("vaVoice").value,tempo:$("vaTempo").value,takes:$("vaTakes").value,clips:($("vaClips").value||"").trim(),style:($("vaStyle").value||"").trim()};
+    msg("Startar jobbet…");
+    try{await gh.dispatch(inputs);msg((action==="provlyssna"?"Provklippen":"Alla klipp")+" för "+name+" skapas nu. Det tar "+(action==="provlyssna"?"2–3":"5–15")+" minuter. Listan uppdateras när jobbet är klart.");runs.wasBusy=true;setTimeout(runs,4000);}
+    catch(e){msg(e.message,"e");}
+  }
+  function open(){
+    const sel=$("vaVoice");if(!sel.options.length)OPENAI_VOICES.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;sel.appendChild(o);});
+    render();$("voiceAdmin").hidden=false;$("voiceAdmin").scrollIntoView({behavior:"smooth",block:"start"});refresh();
+  }
+  return {open,connect,disconnect,job,render,refresh};
+})();
+function renderVoiceAdmin(){voiceAdmin.render();}
+function openVoiceAdmin(){voiceAdmin.open();}
+
+/* ---------- Settings / wiring ---------- */
+function buildNames(){
+  const n=+$("selN").value,box=$("names"),old=[...box.querySelectorAll("input")].map(i=>i.value);
+  box.innerHTML="";
+  for(let i=0;i<n;i++){
+    const l=document.createElement("label");l.className="label";l.style.display="flex";l.style.flexDirection="column";l.style.gap="4px";
+    l.textContent="Spelare "+(i+1);
+    const inp=document.createElement("input");inp.type="text";inp.id="name"+i;
+    inp.value=old[i]||(G&&G.players[i]?G.players[i].name:"Spelare "+(i+1));
+    l.appendChild(inp);box.appendChild(l);
+  }
+}
+$("btnSettings").addEventListener("click",()=>{buildNames();$("settings").hidden=false;});
+$("btnCancel").addEventListener("click",()=>{$("settings").hidden=true;});
+$("selN").addEventListener("change",buildNames);
+fillVoiceSelect();
+$("selVoice").addEventListener("change",e=>{
+  const v=e.target.value;
+  if(v==="admin"){fillVoiceSelect();openVoiceAdmin();return;}
+  if(v.startsWith("pro:")){audio.setVoice(v.slice(4));caller.setLang("pro");audio.clip("s180").catch(()=>{});audio.prefetch(caller.clipNames());}
+  else caller.setLang(v);
+});
+$("voiceAdminClose").addEventListener("click",()=>{$("voiceAdmin").hidden=true;});
+$("vaConnectBtn").addEventListener("click",()=>voiceAdmin.connect());
+$("vaDisconnect").addEventListener("click",()=>voiceAdmin.disconnect());
+$("vaPreview").addEventListener("click",()=>voiceAdmin.job("provlyssna"));
+$("vaCreate").addEventListener("click",()=>voiceAdmin.job("skapa"));
+$("editCam").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
+$("editPick").addEventListener("change",e=>{loadPhoto(e.target.files[0]);e.target.value="";});
+$("editDel").addEventListener("click",()=>{editPhoto=null;fillAv($("editAv"),$("editName").value,null);});
+$("editName").addEventListener("input",()=>{if(!editPhoto)fillAv($("editAv"),$("editName").value,null);});
+$("editSave").addEventListener("click",saveEdit);
+$("editCancel").addEventListener("click",closeEdit);
+$("btnStart").addEventListener("click",()=>{
+  const n=+$("selN").value,names=[];
+  for(let i=0;i<n;i++)names.push(($("name"+i).value||"").trim()||"Spelare "+(i+1));
+  const cfg={start:+$("selStart").value,dbl:$("chkDbl").checked,names};
+  $("settings").hidden=true;
+  if(sess.role==="client"){sess.send({a:"newgame",cfg});return;}
+  newGame(cfg);cam.onNewTurn();caller.gameOn();
+});
+$("btnSess").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.host();});
+$("btnJoin").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();setTimeout(()=>$("sessCode").focus(),50);});
+$("sessChip").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
+$("sessClose").addEventListener("click",()=>{$("sessPanel").hidden=true;});
+$("sessJoin").addEventListener("click",()=>sess.join($("sessCode").value));
+$("sessCode").addEventListener("keydown",e=>{if(e.key==="Enter")sess.join($("sessCode").value);});
+$("sessScan").addEventListener("click",()=>sess.scan());
+$("sessEnd").addEventListener("click",()=>sess.leave());
+$("sessLeave").addEventListener("click",()=>sess.leave());
+$("btnUndo").addEventListener("click",doUndo);
+$("btnNext").addEventListener("click",nextPlayer);
+function tab(cam_){
+  $("tabMan").setAttribute("aria-selected",String(!cam_));$("tabCam").setAttribute("aria-selected",String(cam_));
+  $("paneMan").hidden=cam_;$("paneCam").hidden=!cam_;
+}
+$("tabMan").addEventListener("click",()=>tab(false));
+$("tabCam").addEventListener("click",()=>tab(true));
+$("btnLive").addEventListener("click",startLive);
+$("filePhoto").addEventListener("change",e=>{onPhoto(e.target.files[0]);e.target.value="";});
+$("btnCalib").addEventListener("click",startCalib);
+$("btnAutoCal").addEventListener("click",async()=>{const r=autoCalibrate();if(r.ok&&cam.live)await maybeZoom(r);});
+$("btnRef").addEventListener("click",setRefNow);
+$("btnDetect").addEventListener("click",detectNow);
+$("btnAccept").addEventListener("click",accept);
+$("btnReject").addEventListener("click",reject);
+$("selLens").addEventListener("change",async e=>{
+  const id=e.target.value;
+  if(!id){store.set("dk_lens_manual",false);if(cam.live)await findBestLens();return;}
+  store.set("dk_lens_manual",true);store.set("dk_lens",id);
+  try{await openLive(id);await sleep(800);if(!cam.Hm)await maybeZoom(autoCalibrate());}catch(err){status("Linsen kunde inte öppnas.","e");}
+});
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT")return;
+  if((e.ctrlKey||e.metaKey)&&e.key==="z"){e.preventDefault();doUndo();}
+});
+
+buildBoard();buildPad();
+const saved=store.get("dk_game");
+if(saved&&saved.players&&saved.turn){G=saved;render();}
+else newGame({start:501,dbl:true,names:["Spelare 1","Spelare 2"]});
+autoStart();
+sess.boot();
+if(caller.lang==="pro")audio.prefetch(caller.clipNames());
+loadVoices();
+// remove data left behind by the old on-device voice generator
+try{["dk_oaikey","dk_genId","dk_packs"].forEach(k=>localStorage.removeItem(k));if(window.indexedDB)indexedDB.deleteDatabase("trebleeye");}catch(e){}
+
+/* ---------- Installed app: service worker + updates ---------- */
+if("serviceWorker" in navigator&&location.protocol==="https:"&&!/claude\.ai|claudeusercontent/.test(location.hostname)){
+  let reloading=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(reloading)return;reloading=true;location.reload();});
+  navigator.serviceWorker.register("sw.js").then(reg=>{
+    const offer=w=>{$("upd").hidden=false;$("btnUpd").onclick=()=>w.postMessage("skipWaiting");};
+    if(reg.waiting&&navigator.serviceWorker.controller)offer(reg.waiting);
+    reg.addEventListener("updatefound",()=>{const w=reg.installing;if(!w)return;
+      w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)offer(w);});});
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reg.update().catch(()=>{});});
+  }).catch(()=>{});
+}
+})();
+</script>
