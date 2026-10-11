@@ -70,6 +70,34 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
 .flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);z-index:20;pointer-events:none;opacity:0;font-family:var(--f-num);font-weight:700;font-size:clamp(44px,16vw,96px);max-width:calc(100vw - 32px);box-sizing:border-box;line-height:1;color:var(--chalk);background:rgba(17,23,20,.88);border:2px solid var(--line);border-radius:18px;padding:14px clamp(14px,4vw,34px);white-space:nowrap}
 .flash.big{color:var(--warn);border-color:var(--warn)}
 .flash.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.tvbox{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.tvbar{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:25;display:flex;gap:12px;align-items:center;
+  background:rgba(17,23,20,.92);border:1px solid var(--line);border-radius:999px;padding:8px 10px 8px 18px;font-size:14px;color:var(--mut);transition:opacity .6s}
+.tvbar.faded{opacity:0}
+html.tv body{overflow:hidden}
+html.tv .wrap{max-width:none;padding-inline:clamp(16px,2.5vw,48px);padding-block:clamp(12px,2vh,32px)}
+html.tv header .row,html.tv #sessPanel,html.tv #statsPanel,html.tv #settings,html.tv #editPl,html.tv #voiceAdmin,
+html.tv .grid>.panel,html.tv #btnUndo,html.tv #btnNext,html.tv .log{display:none!important}
+html.tv header{margin-bottom:clamp(8px,1.5vh,20px)}
+html.tv h1{font-size:clamp(28px,3vw,56px)}
+html.tv .grid{display:block}
+html.tv .grid>div:first-child{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);grid-template-areas:"players remote" "turn remote";gap:clamp(12px,2vw,28px);align-items:start}
+html.tv .grid>div:first-child:has(#remoteBox[hidden]){grid-template-columns:minmax(0,1fr);grid-template-areas:"players" "turn"}
+html.tv .players{grid-area:players;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:clamp(10px,1.5vw,20px)}
+html.tv .turn{grid-area:turn;margin-top:0}
+html.tv .remote{grid-area:remote;margin-top:0}
+html.tv .pl{padding:clamp(14px,1.6vw,26px)}
+html.tv .pl .nm{font-size:clamp(18px,2vw,34px)}
+html.tv .av{width:clamp(40px,4vw,72px);height:clamp(40px,4vw,72px);font-size:clamp(16px,1.8vw,30px)}
+html.tv .pl .sc{font-size:clamp(72px,9vw,190px)}
+html.tv .pl .st{font-size:clamp(14px,1.3vw,22px)}
+html.tv .pl .co{font-size:clamp(16px,1.6vw,28px)}
+html.tv .slot{height:clamp(56px,8vh,110px);font-size:clamp(28px,3.4vw,60px)}
+html.tv .slot.sum{font-size:clamp(30px,3.8vw,68px)}
+html.tv #turnLabel{font-size:clamp(14px,1.3vw,22px)}
+html.tv .msg{font-size:clamp(18px,2vw,34px)}
+html.tv .chip{font-size:clamp(24px,2.8vw,52px);padding:4px 16px}
+html.tv #remoteVid{max-height:80vh;object-fit:contain}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
 .stt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;margin-top:12px}
@@ -167,6 +195,10 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
 </style>
 
 <div class="flash" id="flash" aria-live="polite"></div>
+<div class="tvbar" id="tvBar" hidden>
+  <span id="tvHint">Tryck en gång på skärmen för att slå på ljudet</span>
+  <button id="tvExit">Lämna TV-läge</button>
+</div>
 <div class="upd" id="upd" hidden>
   <span>En ny version av TrebleEye finns.</span>
   <button class="pri" id="btnUpd">Uppdatera</button>
@@ -175,7 +207,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.1.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.2.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -270,10 +302,19 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
           <button class="dng" id="sessEnd">Avsluta session</button>
         </div>
       </div>
+      <div class="tvbox">
+        <div class="label">Visa på TV</div>
+        <div class="row">
+          <button class="pri" id="tvCast" hidden>Casta till TV</button>
+          <button id="tvHere">TV-läge på den här enheten</button>
+        </div>
+        <p class="help">Smart-TV med webbläsare: öppna <span class="sesslink" id="tvLink"></span><br>
+        Apple TV: anslut en iPad med <b>Anslut</b>, välj <b>TV-läge på den här enheten</b> och spegla skärmen med AirPlay (Kontrollcenter → Skärmspegling).</p>
+      </div>
     </div>
     <div id="sessClientBox" hidden>
       <p id="sessClientTxt"></p>
-      <button class="dng" id="sessLeave">Lämna session</button>
+      <div class="row"><button id="tvHere2">TV-läge på den här enheten</button><button class="dng" id="sessLeave">Lämna session</button></div>
     </div>
     <div class="status" id="sessMsg" hidden></div>
   </section>
@@ -565,18 +606,18 @@ function statRow(p){
   return {name:p.name,avg:s.darts?s.pts/s.darts*3:0,f9:s.f9darts?s.f9pts/s.f9darts*3:0,c180:s.c180,c140:s.c140,c100:s.c100,
     hiTurn:s.hiTurn,hiCo:s.hiCo,coPct:s.coTry?s.coHit/s.coTry*100:null,coHit:s.coHit,coTry:s.coTry,best:s.best,legs:s.legsWon,sets:p.sets||0,darts:s.darts,pts:s.pts};
 }
-function history(){return store.get("dk_history")||[];}
+function matchHistory(){return store.get("dk_history")||[];}
 function saveHistory(){
   if(sess.role==="client")return;
-  const h=history().filter(m=>m.id!==G.id);
+  const h=matchHistory().filter(m=>m.id!==G.id);
   h.unshift({id:G.id,date:G.date,mode:G.mode,start:G.start,dbl:G.dbl,fmt:G.fmt,winner:G.players[G.matchWinner].name,players:G.players.map(statRow)});
   store.set("dk_history",h.slice(0,200));
 }
-function removeHistory(id){store.set("dk_history",history().filter(m=>m.id!==id));}
+function removeHistory(id){store.set("dk_history",matchHistory().filter(m=>m.id!==id));}
 // career totals per player name across saved matches
 function careers(){
   const c={};
-  history().forEach(m=>m.players.forEach(r=>{
+  matchHistory().forEach(m=>m.players.forEach(r=>{
     const k=r.name,x=c[k]||(c[k]={name:k,matches:0,wins:0,pts:0,darts:0,c180:0,c140:0,c100:0,hiCo:0,coHit:0,coTry:0,best:0});
     x.matches++;if(m.winner===k)x.wins++;
     x.pts+=r.pts||0;x.darts+=r.darts||0;x.c180+=r.c180;x.c140+=r.c140;x.c100+=r.c100;
@@ -959,7 +1000,7 @@ function renderStats(){
     body.appendChild(statTable([["Spelare",r=>r.name],["Matcher",r=>String(r.matches)],["Vinster",r=>r.wins+" ("+Math.round(r.wins/r.matches*100)+"%)"],["Snitt",r=>f1(r.darts?r.pts/r.darts*3:null),"big"],
       ["180",r=>f0(r.c180)],["140+",r=>f0(r.c140)],["Högsta utg.",r=>f0(r.hiCo)],["Utgång %",r=>r.coTry?(r.coHit/r.coTry*100).toFixed(0)+"%":"–"],["Bästa leg",r=>r.best?r.best+" pilar":"–"]],c));
   }else{
-    const h=history();
+    const h=matchHistory();
     if(!h.length){body.innerHTML='<p class="help">Inga avslutade matcher än.</p>';return;}
     const l=document.createElement("div");l.className="mlist";
     h.slice(0,50).forEach(m=>{
@@ -1513,6 +1554,35 @@ cv.addEventListener("click",e=>{
   }
 });
 
+/* ---------- TV mode: big scoreboard + live camera for a TV or a mirrored iPad ---------- */
+const tv={
+  get on(){return document.documentElement.classList.contains("tv");},
+  url(code){return location.origin+location.pathname+"#tv-"+code;},
+  enter(){
+    document.documentElement.classList.add("tv");store.set("dk_tv",true);
+    const bar=$("tvBar");bar.hidden=false;bar.classList.remove("faded");
+    clearTimeout(tv.t);tv.t=setTimeout(()=>bar.classList.add("faded"),8000);
+    try{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
+    try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{});}catch(e){}
+    ["sessPanel","statsPanel","settings","editPl","voiceAdmin"].forEach(id=>{const el=$(id);if(el)el.hidden=true;});
+    window.scrollTo(0,0);if(G)render();
+  },
+  exit(){
+    document.documentElement.classList.remove("tv");store.set("dk_tv",false);$("tvBar").hidden=true;
+    try{if(document.fullscreenElement)document.exitFullscreen();}catch(e){}
+    if(G)render();
+  },
+  // Chromecast and other presentation displays (Chrome on Android/desktop)
+  cast(code){
+    if(!window.PresentationRequest)return;
+    try{new PresentationRequest([tv.url(code)]).start().catch(()=>{});}catch(e){}
+  }
+};
+document.addEventListener("pointerdown",()=>{
+  if(!tv.on)return;const bar=$("tvBar");$("tvHint").textContent="Ljudet är på";bar.classList.remove("faded");
+  clearTimeout(tv.t);tv.t=setTimeout(()=>bar.classList.add("faded"),3000);
+},{passive:true});
+
 /* ---------- Shared session between devices (PeerJS / WebRTC) ---------- */
 // The host (normally the camera phone) owns the game. Other devices send actions to it
 // and receive the full state back, plus the live camera picture.
@@ -1662,6 +1732,7 @@ const sess=(function(){
         qr.innerHTML=q.createSvgTag({cellSize:6,margin:3,scalable:true});qr.dataset.code=code;
       }
       $("sessLink").textContent=joinUrl();
+      $("tvLink").textContent=tv.url(code);$("tvCast").hidden=!window.PresentationRequest;
       $("sessDevs").textContent=conns.length?"Anslutna: "+conns.map(c=>c.label||"Enhet").join(", "):"Inga enheter anslutna än. Skanna QR-koden eller ange koden på den andra enheten.";
     }
     if(role==="client")$("sessClientTxt").textContent=hostConn&&hostConn.open?"Ansluten till session "+code+". Poäng du matar in här skickas till värden.":"Ansluter till session "+code+"…";
@@ -1691,12 +1762,15 @@ const sess=(function(){
   }
   function boot(){
     wrapCaller();
+    const t=location.hash.match(/^#tv-([A-Za-z0-9]{4})$/);
+    if(t){history.replaceState(null,"",location.pathname);tv.enter();join(t[1]);return;}
+    if(store.get("dk_tv"))tv.enter();
     const m=location.hash.match(/^#join-([A-Za-z0-9]{4})$/);
     if(m){history.replaceState(null,"",location.pathname);join(m[1]);return;}
     const s=store.get("dk_sess");
     if(s&&s.code){if(s.role==="host")host(s.code);else if(s.role==="client")join(s.code);}
   }
-  return {host,join,leave,send,ev,changed,streamChanged,scan,ui,boot,
+  return {host,join,leave,send,ev,changed,streamChanged,scan,ui,boot,get code(){return code;},
     get role(){return role;},get undoN(){return undoN;},get available(){return ok();}};
 })();
 
@@ -1916,6 +1990,10 @@ $("btnSess").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.host
 $("btnJoin").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();setTimeout(()=>$("sessCode").focus(),50);});
 $("sessChip").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
 $("sessClose").addEventListener("click",()=>{$("sessPanel").hidden=true;});
+$("tvHere").addEventListener("click",()=>tv.enter());
+$("tvHere2").addEventListener("click",()=>tv.enter());
+$("tvExit").addEventListener("click",()=>tv.exit());
+$("tvCast").addEventListener("click",()=>tv.cast(sess.code));
 $("sessJoin").addEventListener("click",()=>sess.join($("sessCode").value));
 $("sessCode").addEventListener("keydown",e=>{if(e.key==="Enter")sess.join($("sessCode").value);});
 $("sessScan").addEventListener("click",()=>sess.scan());
