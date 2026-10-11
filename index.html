@@ -178,7 +178,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v2.0.1</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -1581,7 +1581,8 @@ function fillVoiceSelect(){
   const first=sel.firstChild;
   VOICES.filter(v=>v.status==="public"||admin.on).forEach(v=>{
     const o=document.createElement("option");o.value="pro:"+v.id;o.dataset.voice="1";
-    o.textContent="Röst: "+v.name+(v.status==="public"?" (proffs)":" ("+STATUS_TXT[v.status]+")");
+    // users only see the name; admins also see which voices are not public yet
+    o.textContent="Röst: "+v.name+(v.status==="public"?"":" · "+STATUS_TXT[v.status]);
     sel.insertBefore(o,first);
   });
   // iOS ignores hidden <option>s, so the admin entry is added and removed instead
