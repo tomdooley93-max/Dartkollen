@@ -2,7 +2,7 @@
 """Creates or manages a TrebleEye caller voice with OpenAI text-to-speech.
 
 Run by .github/workflows/voice.yml. Settings come from environment variables:
-  ACTION  provlyssna | skapa | publicera | dolj
+  ACTION  provlyssna | skapa | publicera | dolj | ta_bort
   NAME    display name of the voice, e.g. "Big Mike"
   VOICE   OpenAI voice (onyx, ash, echo, ...)
   STYLE   style instruction in English (empty = default)
@@ -11,7 +11,7 @@ Run by .github/workflows/voice.yml. Settings come from environment variables:
   CLIPS   optional comma separated clip names to (re)make only those, e.g. "s180,gameshot"
   OPENAI_API_KEY
 """
-import json, os, re, subprocess, sys, tempfile, time, urllib.error, urllib.request
+import json, os, re, shutil, subprocess, sys, tempfile, time, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -140,6 +140,17 @@ def main():
     vid = slug(name)
     data = load_voices()
     entry = next((v for v in data["voices"] if v["id"] == vid), None)
+
+    if action == "ta_bort":
+        if not entry:
+            sys.exit("Rösten '%s' (%s) finns inte. Kontrollera namnet i appen under Hantera röster." % (name, vid))
+        if entry.get("status") == "public" and sum(1 for v in data["voices"] if v.get("status") == "public") <= 1:
+            sys.exit("%s är den enda publicerade rösten och kan inte tas bort. Publicera en annan röst först." % entry["name"])
+        data["voices"] = [v for v in data["voices"] if v["id"] != vid]
+        save_voices(data)
+        shutil.rmtree(os.path.join(ROOT, "audio", vid), ignore_errors=True)
+        print("%s är borttagen." % entry["name"])
+        return
 
     if action in ("publicera", "dolj"):
         if not entry:

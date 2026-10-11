@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Vad ska göras? provlyssna = 3 provklipp, skapa = alla klipp, publicera = synlig för alla, dolj = gömd"
+        description: "Vad ska göras? provlyssna = 3 provklipp, skapa = alla klipp, publicera = synlig för alla, dolj = gömd, ta_bort = raderas helt"
         type: choice
-        options: [provlyssna, skapa, publicera, dolj]
+        options: [provlyssna, skapa, publicera, dolj, ta_bort]
         default: provlyssna
       name:
         description: "Namn på rösten (t.ex. Big Mike)"

@@ -170,7 +170,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.9.1</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.9.2</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -217,6 +217,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
       <li><b>provlyssna</b> skapar tre provklipp. Lyssna här nedan efter 2–3 minuter.</li>
       <li><b>skapa</b> gör alla klipp. Rösten syns då här i adminläge, märkt "förhand".</li>
       <li><b>publicera</b> gör rösten synlig för alla. <b>dolj</b> gömmer den igen.</li>
+      <li><b>ta_bort</b> raderar rösten helt. Skriv namnet exakt som det står i listan nedan.</li>
     </ol>
     <div class="label" style="margin-top:6px">Röster</div>
     <div id="voiceList"></div>
@@ -1567,7 +1568,7 @@ function renderVoiceAdmin(){
   VOICES.forEach(v=>{
     const row=document.createElement("div");row.className="packrow";
     const t=document.createElement("div");t.className="pk";
-    t.textContent=v.name+" · "+(STATUS_TXT[v.status]||v.status)+" · "+(v.clips||0)+" klipp"+(v.voice?" · "+v.voice:"");
+    t.textContent=v.name+" · "+(STATUS_TXT[v.status]||v.status)+" · "+(v.clips||0)+" klipp"+(v.takes>1?" ×"+v.takes:"")+(v.voice?" · "+v.voice:"");
     const b=document.createElement("button");b.textContent="Provlyssna";
     // plays every take of the preview clips so takes can be compared
     b.onclick=async()=>{
