@@ -6,6 +6,7 @@ Run by .github/workflows/voice.yml. Settings come from environment variables:
   NAME    display name of the voice, e.g. "Big Mike"
   VOICE   OpenAI voice (onyx, ash, echo, ...)
   STYLE   style instruction in English (empty = default)
+  TEMPO   playback speed applied afterwards, 0.8-1.5 (default 1.1)
   OPENAI_API_KEY
 """
 import json, os, re, subprocess, sys, tempfile, time, urllib.error, urllib.request
@@ -13,10 +14,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOICES_JSON = os.path.join(ROOT, "voices.json")
-DEFAULT_STYLE = ("Voice: a legendary British darts MC at a sold-out arena. Deep, gravelly, booming and theatrical, "
-                 "with a strong London accent. Delivery: slow and deliberate, stretch the vowels of the numbers and let "
-                 "the last word ring out, building drama like a boxing ring announcer. Never rush. The energy rises with "
-                 "the size of the score. Say exactly the words given and nothing else.")
+DEFAULT_STYLE = ("Voice: a charismatic British darts MC at a packed, noisy arena. Warm, gritty and full of life, "
+                 "with a London accent. Delivery: lively, natural pace with real emotion and no artificial pauses. "
+                 "Punch the numbers out with rhythm and swagger, lifting the pitch on big scores and only stretching "
+                 "the final word slightly. Sound excited to be there, never robotic or monotone. "
+                 "Say exactly the words given and nothing else.")
 BOGEY = {159, 162, 163, 165, 166, 168, 169}
 ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
 TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
@@ -33,21 +35,21 @@ def en(n):
 def clip(name):
     """Text and delivery hint for one clip. Mirrors the clip names the app plays."""
     if name == "gameon":
-        return "Game on!", "Energetic and rallying, the start of the match."
+        return "Game on!", "Short, sharp and fired up."
     if name == "gameshot":
-        return "Game shot, and the leg!", "Triumphant, loud and celebratory, stretch 'Game shot'."
+        return "Game shot, and the leg!", "Triumphant and loud, quick and celebratory."
     if name == "s0":
-        return "No score.", "Flat and a little dry."
+        return "No score.", "Quick, dry and a bit cheeky."
     if name == "s180":
-        return ("One hundred... and eightyyy!",
-                "Maximum hype, the biggest moment of the night. A long, rising 'One hundred', a short pause, "
-                "then a huge, drawn-out 'and eighty'.")
+        return ("One hundred and eightyyy!",
+                "Maximum hype, the biggest moment of the night. Build quickly through 'One hundred and', "
+                "then explode on a big, ringing 'eighty'. No pause in the middle.")
     n = int(name[1:])
     if name[0] == "r":
-        return "You require, " + en(n) + ".", "Clear and measured with a little tension, announcing what the player needs to win."
-    hint = ("Very loud and excited, stretch the vowels of the number." if n >= 140 else
-            "Loud and enthusiastic, stretch the number out." if n >= 100 else
-            "Firm and punchy." if n >= 60 else "Calm, clear call.")
+        return "You require " + en(n) + ".", "Brisk and clear with a hint of tension, like telling the player what they need to win."
+    hint = ("Very excited and loud, a big lift on the last word." if n >= 140 else
+            "Enthusiastic and upbeat, a lift on the last word." if n >= 100 else
+            "Punchy and confident." if n >= 60 else "Quick and matter-of-fact.")
     return en(n) + ("!" if n >= 100 else "."), hint
 
 
@@ -84,12 +86,14 @@ def tts(key, voice, style, name):
             raise
 
 
-def normalise(mp3, out_path):
-    """Even loudness across clips, small mono mp3 like the built-in voices."""
+def normalise(mp3, out_path, tempo):
+    """Trim silence at the edges, shorten long pauses, apply tempo and even loudness; small mono mp3."""
     with tempfile.NamedTemporaryFile(suffix=".mp3") as tmp:
         tmp.write(mp3)
         tmp.flush()
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp.name, "-af", "loudnorm=I=-16:TP=-1.5:LRA=7",
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp.name, "-af", "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.02:"
+                        "stop_periods=-1:stop_duration=0.2:stop_threshold=-45dB:stop_silence=0.1,"
+                        "atempo=%.2f,loudnorm=I=-16:TP=-1.5:LRA=7" % tempo,
                         "-ac", "1", "-ar", "24000", "-b:a", "48k", out_path], check=True)
 
 
@@ -114,6 +118,10 @@ def main():
     name = os.environ.get("NAME", "").strip()
     voice = os.environ.get("VOICE", "onyx").strip()
     style = os.environ.get("STYLE", "").strip() or DEFAULT_STYLE
+    try:
+        tempo = min(1.5, max(0.8, float(os.environ.get("TEMPO", "1.1") or 1.1)))
+    except ValueError:
+        tempo = 1.1
     if not name:
         sys.exit("Ange ett namn på rösten.")
     vid = slug(name)
@@ -140,7 +148,7 @@ def main():
     done = [0]
 
     def work(n):
-        normalise(tts(key, voice, style, n), os.path.join(out_dir, n + ".mp3"))
+        normalise(tts(key, voice, style, n), os.path.join(out_dir, n + ".mp3"), tempo)
         done[0] += 1
         if done[0] % 25 == 0 or done[0] == len(names):
             print("%d/%d klipp klara" % (done[0], len(names)), flush=True)
@@ -151,7 +159,7 @@ def main():
     clips = len([f for f in os.listdir(out_dir) if f.endswith(".mp3")])
     # new voices start as "preview" (only visible in admin mode); existing ones keep their status
     new = {"id": vid, "name": name, "status": (entry or {}).get("status", "preview"),
-           "voice": voice, "style": style, "model": "gpt-4o-mini-tts", "clips": clips}
+           "voice": voice, "style": style, "tempo": tempo, "model": "gpt-4o-mini-tts", "clips": clips}
     if entry:
         entry.update(new)
     else:

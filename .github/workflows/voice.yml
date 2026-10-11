@@ -19,6 +19,11 @@ on:
         type: choice
         options: [onyx, ash, echo, ballad, verse, fable, sage, alloy, coral, nova, shimmer]
         default: onyx
+      tempo:
+        description: "Tempo (1.0 = som OpenAI levererar, högre = snabbare)"
+        type: choice
+        options: ["1.0", "1.1", "1.2", "1.3"]
+        default: "1.1"
       style:
         description: "Stil på engelska (lämna tomt för standardstilen)"
         required: false
@@ -50,6 +55,7 @@ jobs:
           NAME: ${{ inputs.name }}
           VOICE: ${{ inputs.voice }}
           STYLE: ${{ inputs.style }}
+          TEMPO: ${{ inputs.tempo }}
         run: python3 tools/voice.py
 
       - name: Commit and publish

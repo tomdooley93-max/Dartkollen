@@ -170,7 +170,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.8.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.8.1</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -559,13 +559,13 @@ const audio=(function(){
   async function playUrl(url){
     const a=ctx();if(!a)return;const r=await fetch(url);if(!r.ok)throw new Error("missing");const ab=await r.arrayBuffer();
     const b=await new Promise((res,rej)=>a.decodeAudioData(ab,res,rej)),s=a.createBufferSource();s.buffer=b;s.connect(a.destination);
-    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.12;
+    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.04;
     await sleep((endAt-a.currentTime)*1000);
   }
   async function clip(name){
     const a=ctx();if(!a)throw new Error("no audio");
     const b=await load(name),s=a.createBufferSource();s.buffer=b;s.connect(a.destination);
-    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.12;
+    const at=Math.max(a.currentTime+0.02,endAt);s.start(at);endAt=at+b.duration+0.04;
   }
   function noise(a,dur){const b=a.createBuffer(1,Math.ceil(a.sampleRate*dur),a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
   function sfx(type){
