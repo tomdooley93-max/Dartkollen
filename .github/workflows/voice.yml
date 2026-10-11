@@ -29,6 +29,11 @@ on:
         type: choice
         options: ["1", "2", "3"]
         default: "2"
+      clips:
+        description: "Bara dessa klipp (valfritt, t.ex. s180,gameshot). Tomt = alla"
+        required: false
+        type: string
+        default: ""
       style:
         description: "Stil på engelska (lämna tomt för standardstilen)"
         required: false
@@ -62,6 +67,7 @@ jobs:
           STYLE: ${{ inputs.style }}
           TEMPO: ${{ inputs.tempo }}
           TAKES: ${{ inputs.takes }}
+          CLIPS: ${{ inputs.clips }}
         run: python3 tools/voice.py
 
       - name: Commit and publish

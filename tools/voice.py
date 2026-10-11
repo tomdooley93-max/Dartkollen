@@ -8,6 +8,7 @@ Run by .github/workflows/voice.yml. Settings come from environment variables:
   STYLE   style instruction in English (empty = default)
   TEMPO   playback speed applied afterwards, 0.8-1.5 (default 1.1)
   TAKES   takes per clip, 1-3 (default 2); the app picks one at random so calls vary
+  CLIPS   optional comma separated clip names to (re)make only those, e.g. "s180,gameshot"
   OPENAI_API_KEY
 """
 import json, os, re, subprocess, sys, tempfile, time, urllib.error, urllib.request
@@ -17,8 +18,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOICES_JSON = os.path.join(ROOT, "voices.json")
 DEFAULT_STYLE = ("Voice: a charismatic British darts MC at a packed, noisy arena. Warm, gritty and full of life, "
                  "with a London accent. Delivery: lively, natural pace with real emotion and no artificial pauses. "
-                 "Punch the numbers out with rhythm and swagger, lifting the pitch on big scores and only stretching "
-                 "the final word slightly. Sound excited to be there, never robotic or monotone. "
+                 "Speak in smooth, connected phrases, never word by word. Punch the numbers out with rhythm and swagger, "
+                 "lifting the pitch on big scores and only stretching the final word slightly. Sound excited to be "
+                 "there, never robotic or monotone. "
                  "Say exactly the words given and nothing else.")
 BOGEY = {159, 162, 163, 165, 166, 168, 169}
 ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
@@ -42,9 +44,9 @@ def clip(name):
     if name == "s0":
         return "No score.", "Quick, dry and a bit cheeky."
     if name == "s180":
-        return ("One hundred and eightyyy!",
-                "Maximum hype, the biggest moment of the night. Build quickly through 'One hundred and', "
-                "then explode on a big, ringing 'eighty'. No pause in the middle.")
+        return ("One hundred and eighty!",
+                "Maximum hype, the biggest moment of the night. Say it as one smooth, connected phrase with no gaps "
+                "between the words, rising in pitch and volume and landing on a big, ringing 'eighty'.")
     n = int(name[1:])
     if name[0] == "r":
         return "You require " + en(n) + ".", "Brisk and clear with a hint of tension, like telling the player what they need to win."
@@ -152,7 +154,11 @@ def main():
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not key:
         sys.exit("Hemligheten OPENAI_API_KEY saknas. Lägg in den under Settings > Secrets and variables > Actions.")
-    base = ["s180", "r144", "gameshot"] if action == "provlyssna" else all_clips()
+    only = [c.strip() for c in os.environ.get("CLIPS", "").split(",") if c.strip()]
+    bad = [c for c in only if c not in all_clips()]
+    if bad:
+        sys.exit("Okända klippnamn: %s. Exempel på giltiga: s180, s60, r144, gameshot, gameon." % ", ".join(bad))
+    base = only or (["s180", "r144", "gameshot"] if action == "provlyssna" else all_clips())
     # (clip name, take, file name): take 1 is "s60.mp3", take 2 "s60_2.mp3" and so on
     names = [(n, t, n if t == 1 else "%s_%d" % (n, t)) for n in base for t in range(1, takes + 1)]
     out_dir = os.path.join(ROOT, "audio", vid)
@@ -174,7 +180,7 @@ def main():
     clips = len({re.sub(r"_\d$", "", f[:-4]) for f in os.listdir(out_dir) if f.endswith(".mp3")})
     # new voices start as "preview" (only visible in admin mode); existing ones keep their status
     new = {"id": vid, "name": name, "status": (entry or {}).get("status", "preview"),
-           "voice": voice, "style": style, "tempo": tempo, "takes": takes if action == "skapa" else (entry or {}).get("takes", takes),
+           "voice": voice, "style": style, "tempo": tempo, "takes": takes if action == "skapa" and not only else (entry or {}).get("takes", takes),
            "model": "gpt-4o-mini-tts", "clips": clips}
     if entry:
         entry.update(new)
