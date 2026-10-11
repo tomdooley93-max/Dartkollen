@@ -166,7 +166,7 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.5.0</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.5.1</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -179,7 +179,8 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
         <option value="off">Ljud av</option>
       </select>
       <button class="chipbtn" id="sessChip" hidden></button>
-      <button id="btnSess">Dela session</button>
+      <button id="btnSess">Starta session</button>
+      <button id="btnJoin">Anslut</button>
       <button id="btnSettings">Nytt spel</button>
     </div>
   </header>
@@ -211,9 +212,8 @@ select,input[type=text],input[type=number]{background:var(--panel2);border:1px s
       <button id="sessClose">Stäng</button>
     </div>
     <div id="sessIdle">
-      <p class="help">Låt flera enheter följa och styra samma match, till exempel kameratelefonen vid tavlan och en iPad på bordet. Starta sessionen på kameratelefonen.</p>
-      <div class="row"><button class="pri" id="sessHost">Starta session här</button></div>
-      <div class="label" style="margin-top:14px">Anslut till en session</div>
+      <p class="help">Skanna QR-koden eller skriv in koden som visas på enheten som startade sessionen (oftast kameratelefonen).</p>
+      <div class="label" style="margin-top:6px">Anslut till en session</div>
       <div class="row" style="margin-top:6px">
         <input type="text" id="sessCode" maxlength="4" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Sessionskod">
         <button id="sessJoin">Anslut</button>
@@ -1428,6 +1428,7 @@ const sess=(function(){
   function setMsg(t){msg=t;const el=$("sessMsg");if(el){el.textContent=t;el.hidden=!t;}chip();}
   function chip(){
     const c=$("sessChip");if(!c)return;
+    $("btnSess").hidden=!!role;$("btnJoin").hidden=!!role;
     if(!role){c.hidden=true;return;}
     c.hidden=false;
     const live=role==="host"?(peer&&peer.open):(hostConn&&hostConn.open);
@@ -1519,10 +1520,10 @@ $("btnStart").addEventListener("click",()=>{
   if(sess.role==="client"){sess.send({a:"newgame",cfg});return;}
   newGame(cfg);cam.onNewTurn();caller.gameOn();
 });
-$("btnSess").addEventListener("click",()=>{$("sessPanel").hidden=!$("sessPanel").hidden;sess.ui();});
+$("btnSess").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.host();});
+$("btnJoin").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();setTimeout(()=>$("sessCode").focus(),50);});
 $("sessChip").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
 $("sessClose").addEventListener("click",()=>{$("sessPanel").hidden=true;});
-$("sessHost").addEventListener("click",()=>sess.host());
 $("sessJoin").addEventListener("click",()=>sess.join($("sessCode").value));
 $("sessCode").addEventListener("keydown",e=>{if(e.key==="Enter")sess.join($("sessCode").value);});
 $("sessScan").addEventListener("click",()=>sess.scan());
