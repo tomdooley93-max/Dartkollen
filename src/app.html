@@ -270,6 +270,48 @@ html.tv .bar,html.tv .backdrop{display:none!important}
 .upd{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:var(--panel2);border-bottom:1px solid var(--grn)}
 @media (display-mode:standalone){.wrap{padding-top:calc(16px + env(safe-area-inset-top,0px))}}
 @media (prefers-reduced-motion:no-preference){.pl,.slot{transition:border-color .2s,box-shadow .2s}}
+/* Landscape phones (e.g. on a selfie stick next to the board): everything on one screen, no page scrolling */
+@media (orientation:landscape) and (max-height:540px){
+  .wrap{padding-inline:max(10px,env(safe-area-inset-left,0px)) max(10px,env(safe-area-inset-right,0px));padding-block:6px}
+  .bar{margin-bottom:6px;gap:6px}
+  .bar button{padding:5px 10px;font-size:13px}
+  #scrHome.active{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:center;min-height:calc(100dvh - 12px)}
+  .home-head{margin:0}
+  .home-head h1{font-size:clamp(40px,9vh,64px)}
+  .home{gap:8px}
+  .home .big{padding:10px;font-size:17px}
+  .tiles{gap:6px}.tiles button{padding:9px 8px;font-size:14px}
+  .home .voice{margin-top:4px}.privacy{margin-top:8px}
+  #scrGame .grid{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:10px;align-items:start}
+  #scrGame .grid>div:first-child,#scrGame .grid>.panel{max-height:calc(100dvh - 58px);overflow:auto}
+  .players{gap:6px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+  .pl{padding:7px 9px;border-radius:10px}
+  .pl .nm{font-size:13px}.av{width:24px;height:24px;font-size:11px}
+  .pl .sc{font-size:clamp(30px,10vh,46px);margin:2px 0}
+  .pl .st{font-size:11px;gap:8px}
+  .pl .co{margin-top:4px;font-size:12px}
+  .turn{margin-top:6px;padding:8px 10px}
+  .turn .row button{padding:5px 10px;font-size:13px}
+  .slots{margin:6px 0;gap:5px}
+  .slot{height:38px;font-size:20px}
+  .slot.sum{font-size:22px}
+  .msg{font-size:13px;min-height:0}
+  .chip{font-size:15px;padding:1px 7px}
+  .log{display:none}
+  #scrGame .grid>.panel{padding:8px}
+  .tabs{margin-bottom:6px}.tabs button{padding:5px}
+  #paneMan:not([hidden]){display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto 1fr;gap:6px 10px;align-items:start}
+  #board{grid-row:1/3;width:min(calc(100dvh - 130px),28vw);margin:0}
+  .mult{margin:0;gap:4px}.mult button{padding:6px 2px;font-size:12px}
+  .nums{gap:4px;grid-template-columns:repeat(5,1fr)}.nums button{padding:5px 0;font-size:16px}
+  .cvbox{max-height:calc(100dvh - 120px)}
+  #cv{max-height:calc(100dvh - 120px);width:auto;max-width:100%;margin:0 auto}
+  .status{margin:6px 0;padding:6px 10px;font-size:13px}
+  .remote{margin-top:6px}#remoteVid{max-height:40vh;object-fit:contain}
+  #modeBox{margin-top:6px}.crt td{font-size:18px;padding:2px 6px}
+  .gcard{padding:12px 16px 14px;gap:8px}.gcard h2{font-size:24px}.gbody{font-size:16px}
+  .gnav{bottom:-14px;margin:0 -16px -14px;padding:8px 16px 14px}.gnav button{padding:10px}
+}
 </style>
 
 <div class="flash" id="flash" aria-live="polite"></div>
@@ -297,7 +339,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
       <div class="byline">by T.Henriksson</div>
-      <div class="meta"><span id="appVer">v2.8.0</span></div>
+      <div class="meta"><span id="appVer">v2.8.1</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
