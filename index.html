@@ -154,6 +154,35 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
 .backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:44}
 body:has(.sheet:not([hidden])) .backdrop{display:block}
 html.tv .bar,html.tv .backdrop{display:none!important}
+.guide{position:fixed;inset:0;z-index:60;background:rgba(5,8,6,.82);display:flex;align-items:center;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px))}
+.guide[hidden]{display:none}
+.gcard{background:var(--panel);border:1px solid var(--line);border-radius:20px;width:min(520px,100%);max-height:100%;overflow:auto;box-sizing:border-box;
+  padding:18px 22px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+@media (prefers-reduced-motion:no-preference){.gcard.in{animation:gIn .32s cubic-bezier(.2,.8,.2,1)}}
+@keyframes gIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.ghead{display:flex;justify-content:space-between;align-items:center}
+.gstep{color:var(--mut);font-size:14px}
+.gskip{background:none;border:none;color:var(--mut);font-size:16px;padding:6px 0}
+.gart-wrap{display:flex;justify-content:center}
+.gart{width:min(150px,40vw,22vh);height:auto}
+.gcard h2{font-family:var(--f-num);font-weight:700;font-size:30px;line-height:1.1;margin:0;color:var(--chalk);text-wrap:balance}
+.gbody{font-size:18px;line-height:1.5}
+.gbody p{margin:0 0 10px}
+.gsteps,.gpts{margin:0 0 10px;padding-left:24px;display:flex;flex-direction:column;gap:10px}
+.gsteps li::marker{font-family:var(--f-num);font-weight:700;color:#7fe0a0}
+.gpts li::marker{color:#7fe0a0}
+.gsmall{font-size:16px;color:var(--mut)}
+.gi{width:26px;height:26px;vertical-align:-7px;color:#7fe0a0;background:var(--panel2);border-radius:6px;padding:2px}
+.glink{word-break:break-all;font-size:15px;color:#7fe0a0}
+.big-ok{font-size:22px;color:#7fe0a0;font-weight:600}
+.gbig{width:100%;padding:16px;font-size:18px}
+.gdots{display:flex;gap:8px;justify-content:center}
+.gdots span{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.gdots span.on{background:#7fe0a0;width:22px;border-radius:5px}
+.gnav{display:flex;gap:10px;position:sticky;bottom:-20px;margin:0 -22px -20px;padding:12px 22px 20px;background:var(--panel);border-top:1px solid var(--line)}
+.gnav button{flex:1;padding:16px;font-size:18px;border-radius:12px}
+.help-tile{grid-column:1/-1}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
 .stt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;margin-top:12px}
@@ -254,6 +283,16 @@ html.tv .bar,html.tv .backdrop{display:none!important}
 
 <div class="flash" id="flash" aria-live="polite"></div>
 <div class="backdrop" id="backdrop"></div>
+<div class="guide" id="guide" hidden role="dialog" aria-modal="true" aria-labelledby="gTitle">
+  <div class="gcard" id="gCard">
+    <div class="ghead"><span class="gstep" id="gStep"></span><button class="gskip" id="gSkip">Hoppa över</button></div>
+    <div class="gart-wrap" id="gArt"></div>
+    <h2 id="gTitle"></h2>
+    <div class="gbody" id="gBody"></div>
+    <div class="gdots" id="gDots"></div>
+    <div class="gnav"><button id="gPrev">‹ Tillbaka</button><button class="pri" id="gNext">Nästa</button></div>
+  </div>
+</div>
 <div class="tvbar" id="tvBar" hidden>
   <span id="tvHint">Tryck en gång på skärmen för att slå på ljudet</span>
   <button id="tvExit">Lämna TV-läge</button>
@@ -266,7 +305,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
   <div class="screen active" id="scrHome">
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="appVer">v2.5.1</span></div>
+      <div class="meta"><span id="appVer">v2.6.0</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -277,6 +316,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
         <button class="chipbtn" id="sessChip" hidden></button>
         <button id="btnStats">Statistik</button>
         <button id="btnShareApp">Dela appen</button>
+        <button class="help-tile" id="btnGuide">Så funkar appen</button>
       </div>
       <label class="label voice">Uppropare
         <select id="selVoice" aria-label="Uppropare">
@@ -1338,6 +1378,82 @@ function renderStats(){
   }
 }
 function openStats(tab){if(tab)statTab=tab;$("statsPanel").hidden=false;renderStats();}
+
+/* ---------- First-start guide: install on the home screen, start a game, enter scores ---------- */
+const guide=(function(){
+  const ua=navigator.userAgent;
+  const isIOS=/iPad|iPhone|iPod/.test(ua)||(/Macintosh/.test(ua)&&"ontouchend" in document);
+  const isAndroid=/Android/.test(ua);
+  const isSafari=isIOS&&!/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+  const installed=()=>window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  let installEvt=null,idx=0,slides=[];
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;});
+
+  // small inline drawings so every step shows what to look for
+  const ICON={
+    share:'<svg viewBox="0 0 24 24" class="gi"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    plus:'<svg viewBox="0 0 24 24" class="gi"><rect x="4" y="4" width="16" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    dots:'<svg viewBox="0 0 24 24" class="gi"><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>'
+  };
+  const board='<svg viewBox="-110 -110 220 220" class="gart"><circle r="105" fill="#0b0f0d"/>'+
+    Array.from({length:20},(_,i)=>{const a1=(i*18-9)*Math.PI/180,a2=(i*18+9)*Math.PI/180,p=(r,a)=>(r*Math.sin(a)).toFixed(1)+" "+(-r*Math.cos(a)).toFixed(1);
+      const seg=(r1,r2,c)=>'<path d="M'+p(r2,a1)+"A"+r2+" "+r2+" 0 0 1 "+p(r2,a2)+"L"+p(r1,a2)+"A"+r1+" "+r1+" 0 0 0 "+p(r1,a1)+'Z" fill="'+c+'"/>';
+      return seg(8,52,i%2?"#e8dcbc":"#1b1d1c")+seg(52,58,i%2?"#2f8452":"#c63a33")+seg(58,86,i%2?"#e8dcbc":"#1b1d1c")+seg(86,92,i%2?"#2f8452":"#c63a33");}).join("")+
+    '<circle r="8" fill="#2f8452"/><circle r="3.5" fill="#c63a33"/><circle cx="0" cy="-55" r="9" fill="none" stroke="#f2b33d" stroke-width="3"/><path d="M14 -40 30 -20" stroke="#f2b33d" stroke-width="4" stroke-linecap="round"/></svg>';
+  const phone=(inner)=>'<svg viewBox="0 0 120 200" class="gart"><rect x="6" y="4" width="108" height="192" rx="18" fill="#19221e" stroke="#9aa89f" stroke-width="3"/><rect x="16" y="20" width="88" height="150" rx="6" fill="#111714"/>'+inner+'</svg>';
+
+  function installSlide(){
+    if(installed())return {title:"Appen är installerad",body:'<p class="big-ok">✓ TrebleEye ligger på din hemskärm.</p><p>Starta den alltid från ikonen på hemskärmen, så sparas spel och inställningar.</p>'};
+    if(isIOS&&!isSafari)return {title:"Öppna i Safari",body:'<p>För att lägga appen på hemskärmen måste den öppnas i <b>Safari</b>, iPhones egen webbläsare med den blå kompassen.</p><ol class="gsteps"><li>Kopiera adressen nedan.</li><li>Öppna Safari och klistra in den.</li><li>Öppna sedan den här guiden igen.</li></ol><p class="glink">'+esc(APP_URL)+'</p>'};
+    if(isIOS)return {title:"Lägg appen på hemskärmen",body:
+      '<p>Då startar TrebleEye som en vanlig app, i helskärm och med egen ikon. Det tar 20 sekunder:</p>'+
+      '<ol class="gsteps"><li>Tryck på <b>Dela-knappen</b> '+ICON.share+' längst ner på skärmen (på iPad uppe till höger).</li>'+
+      '<li>Dra listan uppåt och tryck på <b>Lägg till på hemskärmen</b> '+ICON.plus+'.</li>'+
+      '<li>Tryck på <b>Lägg till</b> uppe till höger.</li>'+
+      '<li>Stäng Safari och öppna <b>TrebleEye</b> från hemskärmen.</li></ol>'};
+    if(isAndroid)return {title:"Lägg appen på hemskärmen",body:
+      '<p>Då startar TrebleEye som en vanlig app, i helskärm och med egen ikon.</p>'+
+      (installEvt?'<p><button class="pri gbig" id="gInstall">Installera appen nu</button></p>':'')+
+      '<ol class="gsteps"><li>Tryck på <b>menyn</b> '+ICON.dots+' uppe till höger i Chrome.</li><li>Tryck på <b>Installera app</b> eller <b>Lägg till på startskärmen</b>.</li><li>Bekräfta med <b>Installera</b>.</li></ol>'};
+    return {title:"Använd appen på mobilen",body:'<p>TrebleEye fungerar bäst på mobil eller surfplatta. Öppna adressen i telefonens webbläsare och lägg appen på hemskärmen:</p><p class="glink">'+esc(APP_URL)+'</p>'};
+  }
+  function build(){
+    slides=[
+      {art:board,title:"Välkommen till TrebleEye",body:'<p>TrebleEye räknar poängen åt er när ni spelar dart.</p><ul class="gpts"><li>Räknar ner och föreslår hur du går ut.</li><li>En uppropare ropar ut poängen som på TV.</li><li>Kameran kan se var pilen hamnade.</li></ul><p>Den här korta guiden visar det viktigaste. Tryck <b>Nästa</b>.</p>'},
+      Object.assign({art:phone('<rect x="38" y="60" width="44" height="44" rx="10" fill="#3f9160"/><text x="60" y="90" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="sans-serif">TE</text><text x="60" y="122" text-anchor="middle" font-size="11" fill="#efe7d3" font-family="sans-serif">TrebleEye</text>')},installSlide()),
+      {art:phone('<rect x="24" y="44" width="72" height="22" rx="6" fill="#3f9160"/><text x="60" y="59" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="sans-serif">Nytt spel</text><rect x="24" y="74" width="72" height="16" rx="5" fill="#202b26"/><rect x="24" y="96" width="72" height="16" rx="5" fill="#202b26"/><rect x="24" y="140" width="72" height="20" rx="6" fill="#3f9160"/><text x="60" y="154" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" font-family="sans-serif">Starta spel</text>'),
+        title:"Starta ett spel",body:'<ol class="gsteps"><li>Tryck på <b>Nytt spel</b>.</li><li>Välj spelläge och hur många som spelar. Skriv gärna in namnen.</li><li>Tryck på <b>Starta spel</b>.</li></ol><p class="gsmall"><b>501</b> är det vanliga spelet: alla börjar på 501 och räknar ner till noll. Sista pilen ska vara en dubbel.<br><b>Cricket</b> och <b>Around the Clock</b> är roliga alternativ, och under <b>Träning</b> kan du öva på utgångar och dubblar.</p>'},
+      {art:board,title:"Skriv in pilarna",body:'<ol class="gsteps"><li><b>Tryck på tavlan</b> där pilen satt. Tryck i den smala yttre ringen för dubbel och den inre för trippel.</li><li>Eller använd knapparna: välj <b>Singel</b>, <b>Dubbel</b> eller <b>Trippel</b> och tryck på siffran.</li><li>Fel? Tryck på <b>Ångra</b>.</li></ol><p class="gsmall">Efter tre pilar går turen automatiskt till nästa spelare. Om en pil missade tavlan, tryck på <b>Miss</b>.</p>'},
+      {art:phone('<circle cx="60" cy="88" r="34" fill="#1b1d1c" stroke="#c63a33" stroke-width="4"/><circle cx="60" cy="88" r="20" fill="none" stroke="#2f8452" stroke-width="4"/><circle cx="60" cy="88" r="5" fill="#c63a33"/><rect x="24" y="140" width="72" height="18" rx="5" fill="#202b26"/><text x="60" y="152" text-anchor="middle" font-size="9" fill="#7fe0a0" font-family="sans-serif">✓ Bra vinkel</text>'),
+        title:"Låt kameran räkna (valfritt)",body:'<ol class="gsteps"><li>Ställ telefonen stadigt, gärna lite från sidan eller ovanifrån, så att hela tavlan syns.</li><li>Öppna fliken <b>Kamera</b> i spelet och tryck <b>Starta kamera</b>.</li><li>Följ <b>Placeringsguiden</b> tills allt är grönt.</li><li>Kasta. Appen visar var pilen hamnade och godkänner efter 2 sekunder. Tryck i bilden om den hamnade fel.</li></ol><p class="gsmall">Kameran gissar ibland fel. Du kan alltid skriva in pilen själv.</p>'},
+      {title:"Fler finesser",body:'<ul class="gpts"><li><b>Uppropare:</b> välj röst eller stäng av ljudet på startskärmen.</li><li><b>Statistik:</b> snitt, 180:or och utgångar för varje spelare.</li><li><b>Flera enheter:</b> tryck <b>Starta session</b> på telefonen vid tavlan och <b>Anslut</b> på en iPad, så ser båda ställningen.</li><li><b>TV:</b> visa ställningen och kamerabilden på TV:n via sessionen.</li><li><b>Dela appen:</b> visa en QR-kod så att andra kan installera.</li></ul>'},
+      {art:board,title:"Nu kör vi!",body:'<p>Det var allt. Du hittar den här guiden igen under <b>Så funkar appen</b> på startskärmen.</p>',last:true}
+    ];
+  }
+  function show(i){
+    idx=Math.max(0,Math.min(slides.length-1,i));const sl=slides[idx];
+    $("gArt").innerHTML=sl.art||"";$("gArt").hidden=!sl.art;
+    $("gTitle").textContent=sl.title;$("gBody").innerHTML=sl.body;
+    $("gDots").innerHTML=slides.map((_,k)=>'<span class="'+(k===idx?"on":"")+'"></span>').join("");
+    $("gPrev").hidden=!idx;
+    $("gNext").textContent=sl.last?"Börja spela":"Nästa";
+    $("gStep").textContent=(idx+1)+" av "+slides.length;
+    const card=$("gCard");card.classList.remove("in");void card.offsetWidth;card.classList.add("in");
+    const ib=$("gInstall");if(ib)ib.onclick=()=>{installEvt.prompt();installEvt.userChoice.finally(()=>{installEvt=null;build();show(idx);});};
+  }
+  function open(){build();$("guide").hidden=false;show(0);}
+  function close(start){
+    $("guide").hidden=true;store.set("dk_guided",true);
+    if(start){buildNames();showScreen("setup");}
+  }
+  // swipe between slides
+  let sx=null;
+  document.addEventListener("touchstart",e=>{if(!$("guide").hidden)sx=e.touches[0].clientX;},{passive:true});
+  document.addEventListener("touchend",e=>{if(sx==null||$("guide").hidden)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>60)show(idx+(dx<0?1:-1));},{passive:true});
+  document.addEventListener("keydown",e=>{if($("guide").hidden)return;if(e.key==="ArrowRight")show(idx+1);if(e.key==="ArrowLeft")show(idx-1);if(e.key==="Escape")close(false);});
+  return {open,close,next(){if(slides[idx].last)close(true);else show(idx+1);},prev(){show(idx-1);},
+    get due(){return !store.get("dk_guided");}};
+})();
 
 /* ---------- Screens: home -> new game -> game ---------- */
 let curScreen="home";
@@ -2413,6 +2529,10 @@ $("btnMenu").addEventListener("click",()=>showScreen("home"));
 $("btnStats2").addEventListener("click",()=>openStats());
 $("sessChip2").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
 $("backdrop").addEventListener("click",closeSheets);
+$("btnGuide").addEventListener("click",()=>guide.open());
+$("gNext").addEventListener("click",()=>guide.next());
+$("gPrev").addEventListener("click",()=>guide.prev());
+$("gSkip").addEventListener("click",()=>guide.close(false));
 /* share the app itself (the public GitHub Pages address, also when opened from elsewhere) */
 const APP_URL=/github\.io$/.test(location.hostname)?location.origin+location.pathname:"https://tomdooley93-max.github.io/TrebleEye/";
 $("btnShareApp").addEventListener("click",()=>{
@@ -2530,6 +2650,8 @@ if(saved&&saved.players&&saved.turn){
 else newGame({start:501,dbl:true,names:["Spelare 1","Spelare 2"]});
 autoStart();
 sess.boot();
+// first start: show the guide (not on a TV or when the page was opened to join a session)
+if(guide.due&&!tv.on&&sess.role!=="client")setTimeout(()=>guide.open(),400);
 if(caller.lang==="pro")audio.prefetch(caller.clipNames());
 loadVoices();
 // remove data left behind by the old on-device voice generator
