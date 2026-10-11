@@ -128,6 +128,8 @@ html.tv .crt td{font-size:clamp(24px,3vw,52px)}
 .bar .gmeta{flex:1;min-width:0;color:var(--mut);font-size:13px;letter-spacing:.06em;text-transform:uppercase;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar .barpad{width:96px}
 .home-head{display:flex;flex-direction:column;align-items:center;gap:4px;margin:6vh 0 32px}
+.privacy{font-size:12px;color:var(--mut);text-align:center;margin:18px 0 0;line-height:1.5}
+.linkbtn{background:none;border:none;padding:0;color:#7fe0a0;text-decoration:underline;font-size:12px}
 .byline{font-size:15px;color:var(--mut);letter-spacing:.04em;font-style:italic}
 .home-head h1{font-size:clamp(52px,15vw,88px);line-height:1}
 .home{display:flex;flex-direction:column;gap:12px;max-width:440px;margin:0 auto}
@@ -295,7 +297,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
       <div class="byline">by T.Henriksson</div>
-      <div class="meta"><span id="appVer">v2.7.2</span></div>
+      <div class="meta"><span id="appVer">v2.8.0</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -313,6 +315,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
         <option value="off">Ljud av</option>
       </select>
       </label>
+      <p class="privacy">Appen räknar anonymt hur den används (inga namn, cookies eller IP-adresser). <button class="linkbtn" id="btnStatsOpt"></button></p>
     </div>
   </div>
 
@@ -344,6 +347,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     </div>
     <div id="vaConnect">
       <p class="help">Koppla appen till GitHub en gång, så kan du publicera, dölja, ta bort och skapa röster härifrån. Nyckeln sparas bara på den här enheten.</p>
+      <p class="help"><a href="https://darttavla1.goatcounter.com" target="_blank" rel="noopener" style="color:#7fe0a0">Öppna användningsstatistiken (GoatCounter)</a></p>
       <div class="row"><input type="password" id="vaToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0" aria-label="GitHub-nyckel"><button class="pri" id="vaConnectBtn">Koppla</button></div>
     </div>
     <div class="label" style="margin-top:12px">Röster</div>
@@ -646,6 +650,22 @@ function checkout(s,left,dbl){
 
 /* ---------- Game ---------- */
 let G=null,undo=[];
+/* ---------- Anonymous usage statistics (GoatCounter: no cookies, no IP addresses stored) ---------- */
+const usage={
+  get off(){return !!store.get("dk_nostats");},
+  // only the real app counts, not local copies or previews
+  get live(){return location.protocol==="https:"&&/github\.io$/.test(location.hostname);},
+  send(path,title,event){
+    if(this.off||!this.live)return;
+    const q="p="+encodeURIComponent(path)+"&t="+encodeURIComponent(title||path)+(event?"&e=true":"")+
+      "&s="+encodeURIComponent(screen.width+","+screen.height+","+(window.devicePixelRatio||1))+
+      (event?"":"&r="+encodeURIComponent(document.referrer||""))+"&rnd="+Math.random().toString(36).slice(2);
+    try{const img=new Image();img.referrerPolicy="no-referrer-when-downgrade";img.src="https://darttavla1.goatcounter.com/count?"+q;}catch(e){}
+  },
+  ev(name){this.send(name,name,true);},
+  once:{},
+  evOnce(name){if(this.once[name])return;this.once[name]=1;this.ev(name);}
+};
 const store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
 
 // match statistics kept per player for the whole match
@@ -653,6 +673,7 @@ function newStats(){return {pts:0,darts:0,f9pts:0,f9darts:0,c180:0,c140:0,c100:0
 function newTurn(s,legDarts){return {darts:[],start:s,bust:false,done:false,legDarts:legDarts||0};}
 const firstTo=n=>Math.ceil((n||1)/2);
 function newGame(cfg){
+  if(sess.role!=="client"&&!cfg.silent)usage.ev("spel/"+(cfg.mode||"x01"));
   if(cfg.mode&&cfg.mode!=="x01"){newModeGame(cfg);return;}
   const fmt={legs:cfg.fmt&&cfg.fmt.legs||1,sets:cfg.fmt&&cfg.fmt.sets||0};
   G={mode:"x01",id:Date.now().toString(36),date:new Date().toISOString(),start:cfg.start,dbl:cfg.dbl,fmt,
@@ -1514,7 +1535,7 @@ const guide=(function(){
       {art:board,title:"Skriv in pilarna",body:'<ol class="gsteps"><li><b>Tryck på tavlan</b> där pilen satt. Tryck i den smala yttre ringen för dubbel och den inre för trippel.</li><li>Eller använd knapparna: välj <b>Singel</b>, <b>Dubbel</b> eller <b>Trippel</b> och tryck på siffran.</li><li>Fel? Tryck på <b>Ångra</b>. Vill du avbryta hela spelet, tryck <b>Avsluta</b> uppe till höger.</li></ol><p class="gsmall">Efter tre pilar går turen automatiskt till nästa spelare. Om en pil missade tavlan, tryck på <b>Miss</b>.</p>'},
       {art:phone('<circle cx="60" cy="88" r="34" fill="#1b1d1c" stroke="#c63a33" stroke-width="4"/><circle cx="60" cy="88" r="20" fill="none" stroke="#2f8452" stroke-width="4"/><circle cx="60" cy="88" r="5" fill="#c63a33"/><rect x="24" y="140" width="72" height="18" rx="5" fill="#202b26"/><text x="60" y="152" text-anchor="middle" font-size="9" fill="#7fe0a0" font-family="sans-serif">✓ Bra vinkel</text>'),
         title:"Låt kameran räkna (valfritt)",body:'<ol class="gsteps"><li>Ställ telefonen stadigt, gärna lite från sidan eller ovanifrån, så att hela tavlan syns.</li><li>Öppna fliken <b>Kamera</b> i spelet och tryck <b>Starta kamera</b>.</li><li>Följ <b>Placeringsguiden</b> tills allt är grönt.</li><li>Kasta. Appen visar var pilen hamnade och godkänner efter 2 sekunder. Tryck i bilden om den hamnade fel.</li></ol><p class="gsmall">Kameran gissar ibland fel. Du kan alltid skriva in pilen själv.</p>'},
-      {title:"Fler finesser",body:'<ul class="gpts"><li><b>Uppropare:</b> välj röst eller stäng av ljudet på startskärmen.</li><li><b>Statistik:</b> snitt, 180:or och utgångar för varje spelare.</li><li><b>Flera enheter:</b> tryck <b>Starta session</b> på telefonen vid tavlan och <b>Anslut</b> på en iPad, så ser båda ställningen.</li><li><b>TV:</b> visa ställningen och kamerabilden på TV:n via sessionen.</li><li><b>Dela appen:</b> visa en QR-kod så att andra kan installera.</li></ul>'},
+      {title:"Fler finesser",body:'<ul class="gpts"><li><b>Uppropare:</b> välj röst eller stäng av ljudet på startskärmen.</li><li><b>Statistik:</b> snitt, 180:or och utgångar för varje spelare.</li><li><b>Flera enheter:</b> tryck <b>Starta session</b> på telefonen vid tavlan och <b>Anslut</b> på en iPad, så ser båda ställningen.</li><li><b>TV:</b> visa ställningen och kamerabilden på TV:n via sessionen.</li><li><b>Dela appen:</b> visa en QR-kod så att andra kan installera.</li></ul><p class="gsmall">Appen räknar anonymt hur den används, utan namn, cookies eller IP-adresser. Det kan stängas av längst ner på startskärmen.</p>'},
       {art:board,title:"Nu kör vi!",body:'<p>Det var allt. Du hittar den här guiden igen under <b>Så funkar appen</b> på startskärmen.</p>',last:true}
     ];
   }
@@ -1531,6 +1552,7 @@ const guide=(function(){
   }
   function open(){build();$("guide").hidden=false;show(0);}
   function close(start){
+    usage.ev(start?"guide/klar":"guide/hoppade-över");
     $("guide").hidden=true;store.set("dk_guided",true);
     if(start){buildNames();showScreen("setup");}
   }
@@ -1920,6 +1942,7 @@ async function findBestLens(){
 }
 async function startLive(){
   if(cam.live){stopLive();return;}
+  usage.evOnce("kamera/start");
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){status("Livekamera stöds inte här. Använd Ta foto, eller öppna appen fristående via https.","w");return;}
   try{
     status("Startar kameran…");
@@ -2219,6 +2242,7 @@ const tv={
   get on(){return document.documentElement.classList.contains("tv");},
   url(code){return location.origin+location.pathname+"#tv-"+code;},
   enter(){
+    usage.evOnce("tv/läge");
     document.documentElement.classList.add("tv");store.set("dk_tv",true);
     const bar=$("tvBar");bar.hidden=false;bar.classList.remove("faded");
     clearTimeout(tv.t);tv.t=setTimeout(()=>bar.classList.add("faded"),8000);
@@ -2632,12 +2656,15 @@ $("btnStats2").addEventListener("click",()=>openStats());
 $("sessChip2").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
 $("backdrop").addEventListener("click",closeSheets);
 $("btnGuide").addEventListener("click",()=>guide.open());
+function statsOptLabel(){$("btnStatsOpt").textContent=usage.off?"Avstängt. Slå på":"Stäng av";}
+statsOptLabel();
+$("btnStatsOpt").addEventListener("click",()=>{if(!usage.off)usage.ev("statistik/avstängd");store.set("dk_nostats",!usage.off);statsOptLabel();});
 $("gNext").addEventListener("click",()=>guide.next());
 $("gPrev").addEventListener("click",()=>guide.prev());
 $("gSkip").addEventListener("click",()=>guide.close(false));
 /* share the app itself (the public GitHub Pages address, also when opened from elsewhere) */
 const APP_URL=/github\.io$/.test(location.hostname)?location.origin+location.pathname:"https://tomdooley93-max.github.io/TrebleEye/";
-$("btnShareApp").addEventListener("click",()=>{
+$("btnShareApp").addEventListener("click",()=>{usage.ev("dela/öppnad");
   $("shareLink").textContent=APP_URL;
   const qr=$("shareQR");
   if(!qr.firstChild&&typeof qrcode!=="undefined"){const q=qrcode(0,"M");q.addData(APP_URL);q.make();qr.innerHTML=q.createSvgTag({cellSize:6,margin:3,scalable:true});}
@@ -2645,7 +2672,7 @@ $("btnShareApp").addEventListener("click",()=>{
   $("sharePanel").hidden=false;
 });
 $("shareClose").addEventListener("click",()=>{$("sharePanel").hidden=true;});
-$("shareNative").addEventListener("click",()=>{navigator.share({title:"TrebleEye",text:"Dartappen TrebleEye: poängräkning, uppropare och kamera.",url:APP_URL}).catch(()=>{});});
+$("shareNative").addEventListener("click",()=>{usage.ev("dela/app");navigator.share({title:"TrebleEye",text:"Dartappen TrebleEye: poängräkning, uppropare och kamera.",url:APP_URL}).catch(()=>{});});
 $("shareCopy").addEventListener("click",()=>{
   const done=()=>{$("shareCopy").textContent="Kopierad!";setTimeout(()=>{$("shareCopy").textContent="Kopiera länk";},2000);};
   if(navigator.clipboard)navigator.clipboard.writeText(APP_URL).then(done,()=>{getSelection().selectAllChildren($("shareLink"));});
@@ -2705,7 +2732,7 @@ $("btnStart").addEventListener("click",()=>{
   if(sess.role==="client"){sess.send({a:"newgame",cfg});return;}
   newGame(cfg);cam.onNewTurn();caller.gameOn();
 });
-$("btnSess").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.host();});
+$("btnSess").addEventListener("click",()=>{usage.ev("session/start");$("sessPanel").hidden=false;sess.host();});
 $("btnJoin").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();setTimeout(()=>$("sessCode").focus(),50);});
 $("sessChip").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
 $("sessClose").addEventListener("click",()=>{$("sessPanel").hidden=true;});
@@ -2713,7 +2740,7 @@ $("tvHere").addEventListener("click",()=>tv.enter());
 $("tvHere2").addEventListener("click",()=>tv.enter());
 $("tvExit").addEventListener("click",()=>tv.exit());
 $("tvCast").addEventListener("click",()=>tv.cast(sess.code));
-$("sessJoin").addEventListener("click",()=>sess.join($("sessCode").value));
+$("sessJoin").addEventListener("click",()=>{usage.ev("session/anslut");sess.join($("sessCode").value);});
 $("sessCode").addEventListener("keydown",e=>{if(e.key==="Enter")sess.join($("sessCode").value);});
 $("sessScan").addEventListener("click",()=>sess.scan());
 $("sessEnd").addEventListener("click",()=>sess.leave());
@@ -2754,9 +2781,11 @@ if(saved&&saved.players&&saved.turn){
   if(G.turn.legDarts==null)G.turn.legDarts=0;
   render();
 }
-else newGame({start:501,dbl:true,names:["Spelare 1","Spelare 2"]});
+else newGame({silent:true,start:501,dbl:true,names:["Spelare 1","Spelare 2"]});
 autoStart();
 sess.boot();
+usage.send("/","TrebleEye");
+usage.ev(window.matchMedia&&matchMedia("(display-mode: standalone)").matches||navigator.standalone===true?"start/hemskärm":"start/webbläsare");
 // first start: show the guide (not on a TV or when the page was opened to join a session)
 if(guide.due&&!tv.on&&sess.role!=="client")setTimeout(()=>guide.open(),400);
 if(caller.lang==="pro")audio.prefetch(caller.clipNames());
