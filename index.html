@@ -215,6 +215,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
 #sessCode{width:96px;text-transform:uppercase;font-family:var(--f-num);font-size:22px;letter-spacing:.18em;text-align:center}
 #scanBox{margin-top:10px;max-width:320px}
 #scanVid,#remoteVid{width:100%;border-radius:10px;background:#000;display:block}
+.rwrap{position:relative;overflow:hidden;border-radius:10px;background:#000}
 .sessgrid{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:8px}
 #shareQR{background:#fff;border-radius:12px;padding:6px;width:200px;max-width:100%}
 #shareQR svg{display:block;width:100%;height:auto}
@@ -353,7 +354,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
       <div class="byline">by T.Henriksson</div>
-      <div class="meta"><span id="appVer">v2.8.2</span></div>
+      <div class="meta"><span id="appVer">v2.9.0</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -572,7 +573,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
       </div>
       <div class="panel remote" id="remoteBox" hidden>
         <div class="label">Livebild från kameran</div>
-        <video id="remoteVid" playsinline autoplay muted></video>
+        <div class="rwrap" id="remoteWrap"><video id="remoteVid" playsinline autoplay muted></video></div>
       </div>
     </div>
 
@@ -613,6 +614,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
         <div class="ctl">
           <button class="pri" id="btnLive">Starta kamera</button>
           <select id="selLens" aria-label="Lins"><option value="">Lins: bästa automatiskt</option></select>
+          <button id="btnRotate">Rotera bild ↻</button>
           <button id="btnAutoCal">Autokalibrera</button>
           <button id="btnCalib">Kalibrera manuellt</button>
           <button id="btnRef">Tom tavla nu</button>
@@ -641,7 +643,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
             <li>Kasta. Pilen registreras när bilden är stilla och godkänns efter 2 s om du inte rättar den (tryck i bilden) eller avvisar.</li>
             <li>Dra ut pilarna: nästa spelare väljs automatiskt.</li>
           </ol>
-          Flyttas kameran kalibrerar appen om sig själv. Lyckas inte autokalibreringen, välj Kalibrera manuellt och tryck på dubbelringens ytterkant vid 20, 6, 3 och 11.
+          Står tavlan på sidan eller upp och ner i bilden? Tryck <b>Rotera bild</b> tills 20 är överst. Flyttas kameran kalibrerar appen om sig själv. Lyckas inte autokalibreringen, välj Kalibrera manuellt och tryck på dubbelringens ytterkant vid 20, 6, 3 och 11.
         </div>
       </div>
     </div>
@@ -1785,20 +1787,44 @@ const CAL_NAMES=["20 (överst)","6 (höger)","3 (nederst)","11 (vänster)"];
 const cv=$("cv"),ctx=cv.getContext("2d");
 const work=document.createElement("canvas"),wctx=work.getContext("2d",{willReadFrequently:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const cam={W:480,H:360,src:null,live:false,looping:false,stream:null,track:null,deviceId:store.get("dk_lens")||null,
+const cam={rot:store.get("dk_camrot")||0,W:480,H:360,src:null,live:false,looping:false,stream:null,track:null,deviceId:store.get("dk_lens")||null,
   pts:[],calib:false,Hm:null,Hi:null,mask:null,bx:null,by:null,maskN:0,base:0,
   ref:null,emptyRef:null,rgba:null,prop:null,timer:null,lastGray:null,moving:false,lastMove:0,lastTick:0,lastCheck:0,
   badChecks:0,needRef:true,waitSince:0,dirty:false,busy:false,wl:null,zoomed:false};
 
 function status(t,cls){const s=$("camStatus");s.textContent=t;s.className="status"+(cls?" "+cls:"");}
-function calKey(){return "dk_cal_"+(cam.live?(cam.deviceId||"std"):"photo");}
+function calKey(){return "dk_cal_"+(cam.live?(cam.deviceId||"std"):"photo")+(cam.rot?"_r"+cam.rot:"");}
+// size of the picture after the user's rotation (phone on its side, rotation lock on)
+function srcDims(){
+  const s=cam.src;if(!s)return [4,3];
+  const w=s.videoWidth||s.naturalWidth||4,h=s.videoHeight||s.naturalHeight||3;
+  return cam.rot%180?[h,w]:[w,h];
+}
+// draw the camera picture upright into a canvas of cam.W x cam.H
+function paintSrc(c){
+  if(!cam.rot){c.drawImage(cam.src,0,0,cam.W,cam.H);return;}
+  const side=cam.rot%180!==0,dw=side?cam.H:cam.W,dh=side?cam.W:cam.H;
+  c.save();c.translate(cam.W/2,cam.H/2);c.rotate(cam.rot*Math.PI/180);c.drawImage(cam.src,-dw/2,-dh/2,dw,dh);c.restore();
+}
+$("vid").addEventListener("resize",()=>{
+  if(!cam.live)return;const [w,h]=srcDims(),H=Math.round(cam.W*h/w);
+  if(H!==cam.H){clearProp();setSize(w,h,true);if(!cam.Hm){const r=autoCalibrate(true);if(r.ok)status("Telefonen vreds. Kalibrerat igen.");}}
+});
+function rotateCam(){
+  cam.rot=(cam.rot+90)%360;store.set("dk_camrot",cam.rot);
+  if(!cam.src){status("Bilden vrids "+cam.rot+"° när kameran startar.");return;}
+  clearProp();setSize(...srcDims(),true);drawCam();
+  if(!cam.Hm){const r=autoCalibrate(true);status(r.ok?"Bilden vriden "+cam.rot+"° och tavlan kalibrerad.":"Bilden vriden "+cam.rot+"°. Vrid tills 20 är överst, tryck sedan Autokalibrera.",r.ok?"":"w");}
+  else status("Bilden vriden "+cam.rot+"°.");
+  sess.changed();
+}
 function setSize(w,h,force){
   const H=Math.round(cam.W*h/w);
   if(force||H!==cam.H||!cam.Hm){cam.H=H;cv.width=cam.W;cv.height=H;work.width=cam.W;work.height=H;cam.ref=null;cam.emptyRef=null;cam.needRef=true;loadCalib();}
 }
 function grab(){
   if(!cam.src)return null;
-  wctx.drawImage(cam.src,0,0,cam.W,cam.H);
+  paintSrc(wctx);
   // [gray | red-green | blue-green] so coloured flights show up on same-brightness fields
   const n=cam.W*cam.H,d=wctx.getImageData(0,0,cam.W,cam.H).data,g=new Uint8Array(3*n);
   for(let i=0,j=0;j<n;i+=4,j++){const r=d[i],gg=d[i+1],b=d[i+2];
@@ -1911,7 +1937,7 @@ function autoCalibrate(silent){
 }
 function drawCam(){
   if(!cam.src)return;
-  ctx.drawImage(cam.src,0,0,cam.W,cam.H);
+  paintSrc(ctx);
   ctx.lineWidth=1.2;
   if(cam.Hm&&!cam.calib){
     ctx.strokeStyle="rgba(242,179,61,.7)";
@@ -1969,7 +1995,7 @@ async function openLive(deviceId){
   try{const cap=cam.track.getCapabilities?cam.track.getCapabilities():{};
     if(cap.focusMode&&cap.focusMode.includes("continuous"))await cam.track.applyConstraints({advanced:[{focusMode:"continuous"}]});}catch(e){}
   cam.src=vid;cam.live=true;cam.zoomed=false;$("ph").hidden=true;$("btnLive").textContent="Stoppa kamera";
-  setSize(vid.videoWidth,vid.videoHeight,true);
+  setSize(...srcDims(),true);
   sess.streamChanged();
   wake();
   if(!cam.looping){cam.looping=true;requestAnimationFrame(loop);}
@@ -2042,7 +2068,7 @@ function onPhoto(file){
   const img=new Image();
   img.onload=()=>{
     if(cam.live)stopLive();
-    cam.src=img;$("ph").hidden=true;setSize(img.naturalWidth,img.naturalHeight);drawCam();grab();renderPlacement();
+    cam.src=img;$("ph").hidden=true;setSize(...srcDims());drawCam();grab();renderPlacement();
     // the phone may have moved since the last photo: recalibrate if the rings no longer line up
     if(cam.Hm&&boardScore(cam.Hm)<Math.max(0.45,(cam.base||0)*0.6)){cam.Hm=null;cam.ref=null;cam.needRef=true;}
     if(!cam.Hm){const r=autoCalibrate();renderPlacement();if(!r.ok)return;}
@@ -2342,7 +2368,7 @@ const sess=(function(){
 
   /* host side */
   function photos(){const pr=profiles(),o={};G.players.forEach(p=>{if(pr[p.name])o[p.name]=pr[p.name];});return o;}
-  function stateMsg(){return {t:"state",G,undoN:undo.length,photos:photos()};}
+  function stateMsg(){return {t:"state",G,undoN:undo.length,photos:photos(),rot:cam.rot};}
   function sendAll(m){conns.forEach(c=>{if(c.open){try{c.send(m);}catch(e){}}});}
   function flush(){flushT=null;if(role!=="host")return;sendAll(stateMsg());pending.forEach(sendAll);pending=[];}
   function changed(){if(role==="host"&&conns.length&&!flushT)flushT=setTimeout(flush,0);}
@@ -2431,6 +2457,7 @@ const sess=(function(){
     if(!m||typeof m!=="object")return;
     if(m.t==="state"&&m.G&&Array.isArray(m.G.players)){
       G=m.G;undoN=m.undoN|0;
+      if(typeof m.rot==="number"&&m.rot!==remoteRot){remoteRot=m.rot%360;fitRemote();}
       if(G.ended&&curScreen==="game"&&!tv.on){showScreen("home");}
       if(curScreen!=="game"&&!onHostMsg.shown){onHostMsg.shown=true;$("sessPanel").hidden=true;showScreen("game");}
       if(m.photos&&typeof m.photos==="object"){const pr=profiles();
@@ -2442,9 +2469,22 @@ const sess=(function(){
     if(hostConn&&hostConn.open){hostConn.send(Object.assign({t:"act"},act));return true;}
     setMsg("Inte ansluten till värden just nu.");ui();return false;
   }
+  let remoteRot=0;
+  // rotate the live picture like the camera phone does, and keep it inside its box
+  function fitRemote(){
+    const v=$("remoteVid"),wrap=$("remoteWrap");if(!v||!wrap)return;
+    const vw=v.videoWidth,vh=v.videoHeight,cw=wrap.clientWidth;
+    if(!remoteRot||!vw||!cw){v.style.cssText="";wrap.style.height="";return;}
+    if(remoteRot%180===0){v.style.cssText="transform:rotate(180deg)";wrap.style.height="";return;}
+    const elW=cw*vw/vh,elH=elW*vh/vw;
+    const maxH=tv.on?window.innerHeight*0.8:window.innerHeight*0.7,k=Math.min(1,maxH/elW);
+    wrap.style.height=(elW*k)+"px";
+    v.style.cssText="position:absolute;width:"+elW+"px;height:"+elH+"px;left:"+((cw-elW)/2)+"px;top:"+((elW*k-elH)/2)+"px;transform:rotate("+remoteRot+"deg) scale("+k+");max-height:none";
+  }
+  window.addEventListener("resize",fitRemote);
   function showRemote(stream){
     const box=$("remoteBox"),v=$("remoteVid");
-    if(stream){v.srcObject=stream;box.hidden=false;v.play().catch(()=>{});}
+    if(stream){v.srcObject=stream;box.hidden=false;v.onloadedmetadata=v.onresize=fitRemote;v.play().catch(()=>{});setTimeout(fitRemote,300);}
     else{v.srcObject=null;box.hidden=true;}
   }
 
@@ -2818,6 +2858,7 @@ $("tabCam").addEventListener("click",()=>tab(true));
 $("btnLive").addEventListener("click",startLive);
 $("filePhoto").addEventListener("change",e=>{onPhoto(e.target.files[0]);e.target.value="";});
 $("btnCalib").addEventListener("click",startCalib);
+$("btnRotate").addEventListener("click",rotateCam);
 $("btnAutoCal").addEventListener("click",async()=>{const r=autoCalibrate();if(r.ok&&cam.live)await maybeZoom(r);});
 $("btnRef").addEventListener("click",setRefNow);
 $("btnDetect").addEventListener("click",detectNow);
