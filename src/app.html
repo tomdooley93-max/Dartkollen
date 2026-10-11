@@ -170,6 +170,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
 .gnav{display:flex;gap:10px;position:sticky;bottom:-20px;margin:0 -22px -20px;padding:12px 22px 20px;background:var(--panel);border-top:1px solid var(--line)}
 .gnav button{flex:1;padding:16px;font-size:18px;border-radius:12px}
 .help-tile{grid-column:1/-1}
+#btnEnd{padding:8px 10px}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
 .stt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px;margin-top:12px}
@@ -292,7 +293,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
   <div class="screen active" id="scrHome">
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="appVer">v2.6.0</span></div>
+      <div class="meta"><span id="appVer">v2.7.1</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -447,14 +448,22 @@ html.tv .bar,html.tv .backdrop{display:none!important}
           <option value="x01" selected>X01 (301/501/701)</option>
           <option value="cricket">Cricket</option>
           <option value="atc">Around the Clock</option>
+          <option value="killer">Killer</option>
+          <option value="c170">170 (nio pilar)</option>
           <option value="checkout">Träning: utgångar</option>
           <option value="bobs27">Träning: Bob's 27</option>
         </select>
       </label>
-      <label class="opt-co" hidden>Utgångar
+      <label class="opt-lives" hidden>Siffror
+        <select id="selPick"><option value="throw" selected>Kasta med fel hand</option><option value="random">Lotta automatiskt</option></select>
+      </label>
+      <label class="opt-lives" hidden>Streck
+        <select id="selLives"><option value="3" selected>3 streck</option><option value="5">5 streck</option></select>
+      </label>
+      <label class="opt-range" hidden>Utgångar
         <select id="selRange"><option value="61-100" selected>61–100</option><option value="101-130">101–130</option><option value="131-170">131–170</option><option value="2-170">Blandat 2–170</option></select>
       </label>
-      <label class="opt-co" hidden>Rundor
+      <label class="opt-rounds" hidden>Rundor
         <select id="selRounds"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select>
       </label>
       <label class="opt-x01">Spel
@@ -481,7 +490,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
   </div>
 
   <div class="screen" id="scrGame">
-    <div class="bar"><button id="btnMenu">‹ Meny</button><span class="gmeta" id="gameMeta"></span><button class="chipbtn" id="sessChip2" hidden></button><button id="btnStats2">Statistik</button></div>
+    <div class="bar"><button id="btnMenu">‹ Meny</button><span class="gmeta" id="gameMeta"></span><button class="chipbtn" id="sessChip2" hidden></button><button id="btnStats2">Statistik</button><button class="dng" id="btnEnd">Avsluta</button></div>
   <div class="grid">
     <div>
       <div class="players" id="players"></div>
@@ -656,6 +665,7 @@ const onDouble=s=>s===50||(s>=2&&s<=40&&s%2===0);
 
 function addDart(d,pos,fromCam){
   if(sess.role==="client"){sess.send({a:"dart",d:{m:d.m,n:d.n},pos:pos||null});return;}
+  if(G&&G.ended)return;
   if(G&&G.mode!=="x01"){modeDart(d,pos);if(!fromCam)cam.afterManual();return;}
   if(!G||G.winner!==null)return;
   if(G.turn.done)nextPlayer();
@@ -855,14 +865,101 @@ const MODES={
     stat:p=>({name:p.name,score:p.score,hits:p.dhits,round:Math.min(p.round,21),out:p.out}),
     statCols:[["Spelare",r=>r.name],["Poäng",r=>String(r.score),"big"],["Dubbelträffar",r=>String(r.hits)],["Rundor",r=>r.round+"/21"+(r.out?" (ute)":"")]],
     summary:r=>r.score+" p"+(r.out?" (ute)":"")
+  },
+  killer:{
+    label:"Killer",
+    // m = streck (0..lives). Fill your own number to become killer; drop below zero and you are out.
+    init(p){p.num=0;p.m=0;p.killer=false;p.out=false;p.kills=0;},
+    setup(){
+      G.kphase=G.cfg.pick==="throw"?"pick":"play";
+      if(G.kphase==="play"){const nums=Array.from({length:20},(_,i)=>i+1).sort(()=>Math.random()-0.5);G.players.forEach((p,i)=>p.num=nums[i]);}
+    },
+    dart(p,d,t){
+      const L=G.cfg.lives||3;
+      if(G.kphase==="pick"){
+        if(d.n>=1&&d.n<=20&&!G.players.some(o=>o.num===d.n)){p.num=d.n;t.result="picked";t.done=true;}
+        else t.result=d.n>=1&&d.n<=20?"taken":"retry";
+        return;
+      }
+      if(!d.m||d.n<1||d.n>20)return;
+      const o=G.players.find(x=>x.num===d.n&&!x.out);if(!o)return;
+      if(o===p&&!p.killer){p.m=Math.min(L,p.m+d.m);if(p.m>=L)p.killer=true;return;}
+      if(!p.killer)return;
+      // a killer hitting a number takes streck from that player (own number included)
+      o.m-=d.m;if(o!==p)p.kills+=d.m;
+      if(o.m<L)o.killer=false;
+      if(o.m<0){o.m=0;o.out=true;}
+    },
+    keepTurn:p=>G.kphase==="pick"&&!p.num,
+    nextIndex(){
+      if(G.kphase!=="pick")return null;
+      for(let k=1;k<=G.players.length;k++){const i=(G.cur+k)%G.players.length;if(!G.players[i].num)return i;}
+      G.kphase="play";return 0;
+    },
+    finished:p=>p.out,
+    winner(){if(G.kphase!=="play")return null;const alive=G.players.filter(p=>!p.out);return G.players.length>1&&alive.length===1?G.players.indexOf(alive[0]):null;},
+    big:p=>p.num?String(p.num):"?",
+    sub(p){const L=G.cfg.lives||3;return p.out?"Ute":G.kphase==="pick"?(p.num?"Siffra vald":"Väljer siffra"):"●".repeat(p.m)+"○".repeat(Math.max(0,L-p.m))+(p.killer?" · KILLER":"");},
+    msg(p,t){
+      if(G.kphase==="pick"){
+        if(t.result==="taken")return '<span class="label">Den siffran är redan tagen. Kasta igen med fel hand.</span>';
+        if(t.result==="retry")return '<span class="label">Ingen siffra. Kasta igen med fel hand.</span>';
+        if(t.result==="picked")return '<span class="label">'+esc(p.name)+' fick siffran '+p.num+'.</span>';
+        return '<span class="label">'+esc(p.name)+': kasta en pil med fel hand för att få din siffra.</span>';
+      }
+      if(!p.killer)return '<span class="label">Fyll din siffra för att bli killer (singel 1, dubbel 2, trippel 3) </span><span class="chip nx">'+p.num+'</span>';
+      const opp=G.players.filter(o=>o!==p&&!o.out);
+      return '<span class="label">Du är killer! Sikta på </span>'+opp.map(o=>'<span class="chip">'+o.num+' '+esc(o.name)+'</span>').join("")+'<span class="label"> · din egen siffra kostar streck</span>';
+    },
+    stat:p=>({name:p.name,num:p.num,m:p.m,kills:p.kills,out:p.out}),
+    statCols:[["Spelare",r=>r.name],["Siffra",r=>String(r.num||"–")],["Streck kvar",r=>r.out?"ute":String(r.m),"big"],["Tagna streck",r=>String(r.kills)]],
+    summary:r=>(r.num||"?")+", "+(r.out?"ute":r.m+" streck kvar")
+  },
+  c170:{
+    label:"170",
+    init(p){p.left=170;p.visitStart=170;p.visit=0;p.pts=0;p.rounds=0;p.roundDone=false;},
+    start(p){p.left=170;p.visitStart=170;p.visit=0;p.roundDone=false;},
+    dart(p,d,t){
+      const rest=p.left-d.v;
+      if(rest===0&&d.m===2){p.left=0;p.pts++;p.rounds++;p.roundDone=true;t.result="hit";t.done=true;}
+      else if(rest<2){p.left=p.visitStart;t.result="bust";t.done=true;}
+      else p.left=rest;
+    },
+    // nine darts = three visits; after the third visit without a finish the board takes the point
+    turnEnd(p,t){
+      if(p.roundDone)return;
+      p.visit++;
+      if(p.visit>=3){G.board=(G.board||0)+1;p.rounds++;p.roundDone=true;t.result="fail";}
+      else p.visitStart=p.left;
+    },
+    keepTurn:p=>!p.roundDone,
+    winner(){
+      const n=G.cfg.rounds||10;
+      if(!G.players.every(p=>p.rounds>=n))return null;
+      let w=0;G.players.forEach((p,i)=>{if(p.pts>G.players[w].pts)w=i;});return w;
+    },
+    big:p=>String(p.left),
+    sub:p=>"Poäng "+p.pts+" · Tavlan "+(G.board||0)+" · runda "+Math.min(p.rounds+1,G.cfg.rounds||10)+"/"+(G.cfg.rounds||10),
+    msg(p,t){
+      if(t.result==="hit")return '<span class="label">Utgång! Poäng till '+esc(p.name)+'.</span>';
+      if(t.result==="fail")return '<span class="label">Nio pilar utan utgång. Tavlan får poängen.</span>';
+      const dartsLeft=9-p.visit*3-t.darts.length;
+      const co=checkout(p.left,3-t.darts.length,true);
+      return '<span class="label">'+(t.result==="bust"?"Bust! Tillbaka till "+p.left+". ":"")+'Pil '+(10-dartsLeft)+' av 9 · </span>'+
+        (co?co.map((d,k)=>'<span class="chip'+(k===0?" nx":"")+(d.m===2?" d":"")+'">'+d.label+'</span>').join(""):'<span class="label">sätt upp nästa besök</span>');
+    },
+    stat:p=>({name:p.name,pts:p.pts,rounds:p.rounds,board:G.board||0}),
+    statCols:[["Spelare",r=>r.name],["Poäng",r=>String(r.pts),"big"],["Tavlan",r=>String(r.board)],["Rundor",r=>String(r.rounds)]],
+    summary:r=>r.pts+"–"+r.board+" mot tavlan"
   }
 };
 const MODE_LABEL=m=>m==="x01"?"X01":(MODES[m]||{}).label||m;
 function newModeGame(cfg){
   const M=MODES[cfg.mode];
-  G={mode:cfg.mode,cfg:{mode:cfg.mode,range:cfg.range||"61-100",rounds:cfg.rounds||10,names:cfg.names},id:Date.now().toString(36),date:new Date().toISOString(),
+  G={mode:cfg.mode,board:0,cfg:{mode:cfg.mode,range:cfg.range||"61-100",rounds:cfg.rounds||10,lives:cfg.lives||3,pick:cfg.pick||"random",names:cfg.names},id:Date.now().toString(36),date:new Date().toISOString(),
      cur:0,winner:null,matchWinner:null,log:[],fmt:{legs:1,sets:0},players:cfg.names.map(n=>({name:n,darts:0}))};
   G.players.forEach(p=>M.init(p));
+  if(M.setup)M.setup();
   G.turn={darts:[],done:false};
   if(M.start)M.start(G.players[0]);
   undo=[];save();render();
@@ -891,8 +988,10 @@ function modeNext(){
   const M=MODES[G.mode],p=G.players[G.cur],t=G.turn;
   if(!t.done){p.darts+=3-t.darts.length;t.done=true;if(M.turnEnd)M.turnEnd(p,t);
     const w=M.winner();if(w!=null){G.winner=G.matchWinner=w;saveModeHistory();caller.modeWin(G.players[w]);save();render();return;}}
-  // skip players who are out (Bob's 27)
-  for(let k=0;k<G.players.length;k++){
+  if(M.keepTurn&&M.keepTurn(p)){G.turn={darts:[],done:false};save();render();cam.onNewTurn();return;}
+  const nx=M.nextIndex?M.nextIndex():null;
+  // skip players who are out (Bob's 27, Killer)
+  if(nx!=null)G.cur=nx;else for(let k=0;k<G.players.length;k++){
     G.cur=(G.cur+1)%G.players.length;
     if(!(M.finished&&M.finished(G.players[G.cur])))break;
   }
@@ -908,7 +1007,7 @@ function saveModeHistory(){
 }
 function renderMode(){
   const M=MODES[G.mode];
-  $("gameMeta").textContent=M.label+(G.mode==="checkout"?" · "+G.cfg.range+" · "+(G.cfg.rounds||10)+" rundor":"");
+  $("gameMeta").textContent=M.label+(G.mode==="checkout"?" · "+G.cfg.range+" · "+(G.cfg.rounds||10)+" rundor":G.mode==="c170"?" · "+(G.cfg.rounds||10)+" rundor · tavlan "+(G.board||0):G.mode==="killer"?" · "+(G.cfg.lives||3)+" streck":"");
   const pl=$("players");pl.innerHTML="";
   G.players.forEach((p,i)=>{
     const el=document.createElement("div");
@@ -1409,8 +1508,8 @@ const guide=(function(){
       {art:board,title:"Välkommen till TrebleEye",body:'<p>TrebleEye räknar poängen åt er när ni spelar dart.</p><ul class="gpts"><li>Räknar ner och föreslår hur du går ut.</li><li>En uppropare ropar ut poängen som på TV.</li><li>Kameran kan se var pilen hamnade.</li></ul><p>Den här korta guiden visar det viktigaste. Tryck <b>Nästa</b>.</p>'},
       Object.assign({art:phone('<rect x="38" y="60" width="44" height="44" rx="10" fill="#3f9160"/><text x="60" y="90" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="sans-serif">TE</text><text x="60" y="122" text-anchor="middle" font-size="11" fill="#efe7d3" font-family="sans-serif">TrebleEye</text>')},installSlide()),
       {art:phone('<rect x="24" y="44" width="72" height="22" rx="6" fill="#3f9160"/><text x="60" y="59" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="sans-serif">Nytt spel</text><rect x="24" y="74" width="72" height="16" rx="5" fill="#202b26"/><rect x="24" y="96" width="72" height="16" rx="5" fill="#202b26"/><rect x="24" y="140" width="72" height="20" rx="6" fill="#3f9160"/><text x="60" y="154" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" font-family="sans-serif">Starta spel</text>'),
-        title:"Starta ett spel",body:'<ol class="gsteps"><li>Tryck på <b>Nytt spel</b>.</li><li>Välj spelläge och hur många som spelar. Skriv gärna in namnen.</li><li>Tryck på <b>Starta spel</b>.</li></ol><p class="gsmall"><b>501</b> är det vanliga spelet: alla börjar på 501 och räknar ner till noll. Sista pilen ska vara en dubbel.<br><b>Cricket</b> och <b>Around the Clock</b> är roliga alternativ, och under <b>Träning</b> kan du öva på utgångar och dubblar.</p>'},
-      {art:board,title:"Skriv in pilarna",body:'<ol class="gsteps"><li><b>Tryck på tavlan</b> där pilen satt. Tryck i den smala yttre ringen för dubbel och den inre för trippel.</li><li>Eller använd knapparna: välj <b>Singel</b>, <b>Dubbel</b> eller <b>Trippel</b> och tryck på siffran.</li><li>Fel? Tryck på <b>Ångra</b>.</li></ol><p class="gsmall">Efter tre pilar går turen automatiskt till nästa spelare. Om en pil missade tavlan, tryck på <b>Miss</b>.</p>'},
+        title:"Starta ett spel",body:'<ol class="gsteps"><li>Tryck på <b>Nytt spel</b>.</li><li>Välj spelläge och hur många som spelar. Skriv gärna in namnen.</li><li>Tryck på <b>Starta spel</b>.</li></ol><p class="gsmall"><b>501</b> är det vanliga spelet: alla börjar på 501 och räknar ner till noll. Sista pilen ska vara en dubbel.<br><b>Cricket</b>, <b>Killer</b>, <b>170</b> och <b>Around the Clock</b> är roliga alternativ, och under <b>Träning</b> kan du öva på utgångar och dubblar.</p>'},
+      {art:board,title:"Skriv in pilarna",body:'<ol class="gsteps"><li><b>Tryck på tavlan</b> där pilen satt. Tryck i den smala yttre ringen för dubbel och den inre för trippel.</li><li>Eller använd knapparna: välj <b>Singel</b>, <b>Dubbel</b> eller <b>Trippel</b> och tryck på siffran.</li><li>Fel? Tryck på <b>Ångra</b>. Vill du avbryta hela spelet, tryck <b>Avsluta</b> uppe till höger.</li></ol><p class="gsmall">Efter tre pilar går turen automatiskt till nästa spelare. Om en pil missade tavlan, tryck på <b>Miss</b>.</p>'},
       {art:phone('<circle cx="60" cy="88" r="34" fill="#1b1d1c" stroke="#c63a33" stroke-width="4"/><circle cx="60" cy="88" r="20" fill="none" stroke="#2f8452" stroke-width="4"/><circle cx="60" cy="88" r="5" fill="#c63a33"/><rect x="24" y="140" width="72" height="18" rx="5" fill="#202b26"/><text x="60" y="152" text-anchor="middle" font-size="9" fill="#7fe0a0" font-family="sans-serif">✓ Bra vinkel</text>'),
         title:"Låt kameran räkna (valfritt)",body:'<ol class="gsteps"><li>Ställ telefonen stadigt, gärna lite från sidan eller ovanifrån, så att hela tavlan syns.</li><li>Öppna fliken <b>Kamera</b> i spelet och tryck <b>Starta kamera</b>.</li><li>Följ <b>Placeringsguiden</b> tills allt är grönt.</li><li>Kasta. Appen visar var pilen hamnade och godkänner efter 2 sekunder. Tryck i bilden om den hamnade fel.</li></ol><p class="gsmall">Kameran gissar ibland fel. Du kan alltid skriva in pilen själv.</p>'},
       {title:"Fler finesser",body:'<ul class="gpts"><li><b>Uppropare:</b> välj röst eller stäng av ljudet på startskärmen.</li><li><b>Statistik:</b> snitt, 180:or och utgångar för varje spelare.</li><li><b>Flera enheter:</b> tryck <b>Starta session</b> på telefonen vid tavlan och <b>Anslut</b> på en iPad, så ser båda ställningen.</li><li><b>TV:</b> visa ställningen och kamerabilden på TV:n via sessionen.</li><li><b>Dela appen:</b> visa en QR-kod så att andra kan installera.</li></ul>'},
@@ -1455,9 +1554,16 @@ function showScreen(name){
   if(name==="home")updateResume();
 }
 function updateResume(){
-  const has=!!(G&&(G.log.length||G.turn.darts.length)&&G.matchWinner==null);
+  const has=!!(G&&!G.ended&&(G.log.length||G.turn.darts.length)&&G.matchWinner==null);
   $("btnResume").hidden=!has;
   if(has)$("resumeInfo").textContent=G.players.map(p=>p.name).join(" – ")+" · "+$("gameMeta").textContent;
+}
+// abandon the running game without saving it to the statistics
+function endGame(){
+  if(sess.role==="client"){sess.send({a:"end"});return;}
+  clearTimeout(advanceT);
+  G.ended=true;
+  undo=[];save();showScreen("home");
 }
 function closeSheets(){["editPl","voiceAdmin","sessPanel","statsPanel","sharePanel"].forEach(id=>{$(id).hidden=true;});}
 
@@ -2191,9 +2297,10 @@ const sess=(function(){
     else if(m.a==="undo")doUndo();
     else if(m.a==="next")nextPlayer();
     else if(m.a==="rematch"){if(G.matchWinner!=null)rematch();}
+    else if(m.a==="end"){endGame();}
     else if(m.a==="newgame"&&m.cfg&&Array.isArray(m.cfg.names)){
-      if(["cricket","atc","checkout","bobs27"].includes(m.cfg.mode)){
-        newGame({mode:m.cfg.mode,range:CO_RANGES[m.cfg.range]?m.cfg.range:"61-100",rounds:[5,10,20].includes(m.cfg.rounds)?m.cfg.rounds:10,names:m.cfg.names.slice(0,4).map(n=>String(n).slice(0,24))});
+      if(["cricket","atc","checkout","bobs27","killer","c170"].includes(m.cfg.mode)){
+        newGame({mode:m.cfg.mode,range:CO_RANGES[m.cfg.range]?m.cfg.range:"61-100",rounds:[5,10,20].includes(m.cfg.rounds)?m.cfg.rounds:10,lives:[3,5].includes(m.cfg.lives)?m.cfg.lives:3,pick:m.cfg.pick==="throw"?"throw":"random",names:m.cfg.names.slice(0,4).map(n=>String(n).slice(0,24))});
         cam.onNewTurn();caller.gameOn();return;
       }
       const f=m.cfg.fmt||{},legs=[1,3,5,7,9,11].includes(f.legs)?f.legs:1,sets=[0,3,5,7].includes(f.sets)?f.sets:0;
@@ -2237,6 +2344,7 @@ const sess=(function(){
     if(!m||typeof m!=="object")return;
     if(m.t==="state"&&m.G&&Array.isArray(m.G.players)){
       G=m.G;undoN=m.undoN|0;
+      if(G.ended&&curScreen==="game"&&!tv.on){showScreen("home");}
       if(curScreen!=="game"&&!onHostMsg.shown){onHostMsg.shown=true;$("sessPanel").hidden=true;showScreen("game");}
       if(m.photos&&typeof m.photos==="object"){const pr=profiles();
         Object.keys(m.photos).forEach(n=>{const ph=m.photos[n];if(typeof ph==="string"&&ph.startsWith("data:image/")&&pr[n]!==ph)saveProfile(n,ph);});}
@@ -2513,6 +2621,11 @@ $("btnSettings").addEventListener("click",()=>{buildNames();showScreen("setup");
 $("btnBackSetup").addEventListener("click",()=>showScreen("home"));
 $("btnResume").addEventListener("click",()=>showScreen("game"));
 $("btnMenu").addEventListener("click",()=>showScreen("home"));
+$("btnEnd").addEventListener("click",()=>{
+  const b=$("btnEnd");
+  if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Avsluta spelet?";clearTimeout(b.t);b.t=setTimeout(()=>{delete b.dataset.sure;b.textContent="Avsluta";},3500);return;}
+  delete b.dataset.sure;b.textContent="Avsluta";endGame();
+});
 $("btnStats2").addEventListener("click",()=>openStats());
 $("sessChip2").addEventListener("click",()=>{$("sessPanel").hidden=false;sess.ui();});
 $("backdrop").addEventListener("click",closeSheets);
@@ -2548,12 +2661,17 @@ const MODE_HELP={
   cricket:"Stäng 15–20 och bull med tre träffar var (dubbel = 2, trippel = 3). Fler träffar på en stängd siffra ger poäng tills motståndarna stänger den. Den som stänger allt och har minst lika många poäng vinner.",
   atc:"Träffa 1 till 20 i tur och ordning och sist bull. Alla delar av siffran räknas. Först runt vinner.",
   checkout:"Varje runda får ett slumpat utgångsmål. Du har tre pilar på dig att gå ut med en dubbel. Appen visar proffsvägen.",
+  killer:"Alla får en egen siffra, genom att kasta med fel hand eller genom lottning. Fyll din siffra med streck för att bli killer: singel ger 1, dubbel 2 och trippel 3. Som killer tar du streck från den vars siffra du träffar, men din egen siffra kostar dig streck. Den som hamnar under noll är ute. Sist kvar vinner. Minst två spelare.",
+  c170:"Varje runda börjar på 170 och du har nio pilar (tre besök) på dig att gå ut med en dubbel. Lyckas du får du poängen, annars får tavlan den. Bust ger tillbaka poängen från besökets början.",
   bobs27:"Börja på 27 poäng. Kasta tre pilar på D1, sedan D2 och så vidare till bull. Varje träff ger dubbelns värde, ingen träff drar av det. Under noll är du ute."
 };
 function modeOpts(){
   const m=$("selMode").value;
   document.querySelectorAll(".opt-x01").forEach(el=>el.hidden=m!=="x01");
-  document.querySelectorAll(".opt-co").forEach(el=>el.hidden=m!=="checkout");
+  document.querySelectorAll(".opt-range").forEach(el=>el.hidden=m!=="checkout");
+  document.querySelectorAll(".opt-rounds").forEach(el=>el.hidden=!["checkout","c170"].includes(m));
+  document.querySelectorAll(".opt-lives").forEach(el=>el.hidden=m!=="killer");
+  if(m==="killer"&&+$("selN").value<2){$("selN").value="2";buildNames();}
   $("modeHelp").textContent=MODE_HELP[m]||"";
 }
 $("selMode").addEventListener("change",modeOpts);modeOpts();
@@ -2580,7 +2698,7 @@ $("btnStart").addEventListener("click",()=>{
   for(let i=0;i<n;i++)names.push(($("name"+i).value||"").trim()||"Spelare "+(i+1));
   const mode=$("selMode").value;
   const cfg=mode==="x01"?{mode,start:+$("selStart").value,dbl:$("chkDbl").checked,names,fmt:{legs:+$("selLegs").value,sets:+$("selSets").value}}
-    :{mode,names,range:$("selRange").value,rounds:+$("selRounds").value};
+    :{mode,names,range:$("selRange").value,rounds:+$("selRounds").value,lives:+$("selLives").value,pick:$("selPick").value};
   showScreen("game");
   if(sess.role==="client"){sess.send({a:"newgame",cfg});return;}
   newGame(cfg);cam.onNewTurn();caller.gameOn();
