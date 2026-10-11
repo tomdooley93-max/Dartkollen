@@ -174,7 +174,7 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
   <header>
     <div>
       <h1>Treble<span>Eye</span></h1>
-      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.6.1</span></div>
+      <div class="meta"><span id="gameMeta">501 · dubbel ut</span> · <span id="appVer">v1.7.0</span></div>
     </div>
     <div class="row">
       <select id="selVoice" aria-label="Uppropare">
@@ -185,7 +185,6 @@ select,input[type=text],input[type=password],input[type=number]{background:var(-
         <option value="en">Röst: telefonens engelska</option>
         <option value="sv">Röst: telefonens svenska</option>
         <option value="off">Ljud av</option>
-        <option value="gen">Skapa egen röst (OpenAI)…</option>
       </select>
       <button class="chipbtn" id="sessChip" hidden></button>
       <button id="btnSess">Starta session</button>
@@ -1579,7 +1578,7 @@ const voiceGen=(function(){
         r=await fetch("https://api.openai.com/v1/audio/speech",{method:"POST",
           headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
           body:JSON.stringify({model:"gpt-4o-mini-tts",voice,input:c.text,instructions:style+" "+c.hint,response_format:"mp3"})});
-      }catch(e){if(attempt<4){await sleep(1500*(attempt+1));continue;}throw new Error("Ingen kontakt med OpenAI. Kontrollera internet.");}
+      }catch(e){if(attempt<2){await sleep(1500*(attempt+1));continue;}throw new Error("Ingen kontakt med OpenAI ("+(e.message||e.name)+"). Kontrollera internet, eller att ingen innehållsblockerare stoppar api.openai.com.");}
       if(r.ok)return await r.blob();
       let m="";try{m=(await r.json()).error.message||"";}catch(_){}
       if(r.status===401)throw Object.assign(new Error("API-nyckeln godtogs inte. Kontrollera att du klistrat in hela nyckeln."),{fatal:true});
@@ -1592,13 +1591,21 @@ const voiceGen=(function(){
   function msg(t,cls){const el=$("genMsg");el.textContent=t;el.className="status"+(cls?" "+cls:"");el.hidden=!t;}
   async function preview(){
     const k=key();if(!k){msg("Klistra in din API-nyckel först.","w");return;}
-    msg("Genererar provljud…");
+    const v=$("genVoice").value,st=$("genStyle").value;let step="kontakt";
     try{
-      const v=$("genVoice").value,st=$("genStyle").value;
-      for(const n of ["s180","r144","gameshot"]){const b=await tts(k,v,st,n);await audio.playBlob(b);}
-      msg("Provljud uppspelat. Gillar du det? Tryck Generera alla.");
-    }catch(e){msg(e.message,"e");}
+      for(const n of ["s180","r144","gameshot"]){
+        step="kontakt";msg("Hämtar provljud från OpenAI ("+n+")…");
+        const b=await tts(k,v,st,n);
+        step="uppspelning";msg("Spelar upp ("+Math.round(b.size/1024)+" kB)…");
+        try{await audio.playBlob(b);}
+        catch(e){await playEl(b);}
+      }
+      msg("Provljud uppspelat. Gillar du det? Tryck Generera alla klipp.");
+    }catch(e){
+      msg((step==="uppspelning"?"Ljudet hämtades men kunde inte spelas upp ("+(e.name||e.message)+"). Kontrollera att telefonen inte står på ljudlöst.":e.message)+" [steg: "+step+"]","e");
+    }
   }
+  function playEl(b){return new Promise((res,rej)=>{const a=new Audio(URL.createObjectURL(b));a.onended=res;a.onerror=()=>rej(new Error("audio-fel"));a.play().catch(rej);});}
   async function generate(){
     if(running){stopReq=true;return;}
     const k=key();if(!k){msg("Klistra in din API-nyckel först.","w");return;}
@@ -1689,14 +1696,24 @@ const voiceGen=(function(){
   return {open,preview,generate,renderPacks};
 })();
 
+/* Admin mode hides the voice generator and own voices from ordinary users (tap the version number 7 times) */
+const admin={
+  get on(){return !!store.get("dk_admin");},
+  toggle(){store.set("dk_admin",!this.on);fillVoiceSelect();if(!this.on)$("genPanel").hidden=true;fx.flash(this.on?"ADMIN PÅ":"ADMIN AV");}
+};
+(function(){let n=0,t=0;$("appVer").addEventListener("click",()=>{const now=Date.now();n=now-t<1500?n+1:1;t=now;if(n>=7){n=0;admin.toggle();}});})();
 function fillVoiceSelect(){
   const sel=$("selVoice"),cur=caller.lang==="pro"?"pro:"+audio.voice:caller.lang;
+  // iOS ignores hidden <option>s, so the admin-only entry is added and removed instead
+  const old=sel.querySelector('option[value="gen"]');if(old)old.remove();
+  if(admin.on){const o=document.createElement("option");o.value="gen";o.textContent="Skapa egen röst (OpenAI)…";sel.appendChild(o);}
   sel.querySelectorAll("option[data-custom]").forEach(o=>o.remove());
   const genOpt=sel.querySelector('option[value="gen"]');
-  packs.list().filter(p=>p.count>=p.total).forEach(p=>{
+  if(admin.on)packs.list().filter(p=>p.count>=p.total).forEach(p=>{
     const o=document.createElement("option");o.value="pro:custom:"+p.id;o.textContent="Röst: "+p.name+" (egen)";o.dataset.custom="1";sel.insertBefore(o,genOpt);
   });
-  sel.value=cur;if(sel.value!==cur)sel.value="pro:george";
+  sel.value=cur;
+  if(sel.value!==cur){sel.value="pro:george";if(cur.startsWith("pro:")){audio.setVoice("george");}}
 }
 
 /* ---------- Settings / wiring ---------- */
