@@ -43,6 +43,17 @@
       "takes": 2,
       "model": "gpt-4o-mini-tts",
       "clips": 3
+    },
+    {
+      "id": "ross-2-0",
+      "name": "Ross 2.0",
+      "status": "preview",
+      "voice": "onyx",
+      "style": "Voice: a charismatic British darts MC at a packed, noisy arena. Warm, gritty and full of life, with a London accent. Delivery: lively, natural pace with real emotion and no artificial pauses. Speak in smooth, connected phrases, never word by word. Punch the numbers out with rhythm and swagger, lifting the pitch on big scores and only stretching the final word slightly. Sound excited to be there, never robotic or monotone. Say exactly the words given and nothing else.",
+      "tempo": 1.1,
+      "takes": 2,
+      "model": "gpt-4o-mini-tts",
+      "clips": 3
     }
   ]
 }
