@@ -173,6 +173,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
 .gnav{display:flex;gap:10px;position:sticky;bottom:-20px;margin:0 -22px -20px;padding:12px 22px 20px;background:var(--panel);border-top:1px solid var(--line)}
 .gnav button{flex:1;padding:16px;font-size:18px;border-radius:12px}
 .help-tile{grid-column:1/-1}
+.tilelink{display:block;text-align:center;padding:14px 10px;border-radius:10px;border:1px solid var(--warn);color:var(--warn);text-decoration:none;font-size:15px}
 #btnEnd{padding:8px 10px}
 .tabs.small{margin:0;flex:1;max-width:420px}
 .tabs.small button{padding:6px 10px;font-size:14px}
@@ -339,7 +340,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     <header class="home-head">
       <h1>Treble<span>Eye</span></h1>
       <div class="byline">by T.Henriksson</div>
-      <div class="meta"><span id="appVer">v2.8.1</span></div>
+      <div class="meta"><span id="appVer">v2.8.2</span></div>
     </header>
     <div class="home">
       <button class="pri big" id="btnSettings">Nytt spel</button>
@@ -351,6 +352,7 @@ html.tv .bar,html.tv .backdrop{display:none!important}
         <button id="btnStats">Statistik</button>
         <button id="btnShareApp">Dela appen</button>
         <button class="help-tile" id="btnGuide">Så funkar appen</button>
+        <a class="tilelink help-tile" id="lnkVisits" href="https://darttavla1.goatcounter.com" target="_blank" rel="noopener" hidden>Besöksstatistik (admin)</a>
       </div>
       <label class="label voice">Uppropare
         <select id="selVoice" aria-label="Uppropare">
@@ -389,9 +391,9 @@ html.tv .bar,html.tv .backdrop{display:none!important}
     </div>
     <div id="vaConnect">
       <p class="help">Koppla appen till GitHub en gång, så kan du publicera, dölja, ta bort och skapa röster härifrån. Nyckeln sparas bara på den här enheten.</p>
-      <p class="help"><a href="https://darttavla1.goatcounter.com" target="_blank" rel="noopener" style="color:#7fe0a0">Öppna användningsstatistiken (GoatCounter)</a></p>
       <div class="row"><input type="password" id="vaToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0" aria-label="GitHub-nyckel"><button class="pri" id="vaConnectBtn">Koppla</button></div>
     </div>
+    <p class="help"><a href="https://darttavla1.goatcounter.com" target="_blank" rel="noopener" style="color:#7fe0a0">Öppna besöksstatistiken (GoatCounter)</a></p>
     <div class="label" style="margin-top:12px">Röster</div>
     <div id="voiceList"></div>
     <div id="vaTools" hidden>
@@ -1523,9 +1525,13 @@ function renderStats(){
       r.append(d,w,o);l.appendChild(r);
     });
     body.appendChild(l);
-    const clr=document.createElement("button");clr.className="dng";clr.textContent="Rensa all historik";clr.style.marginTop="12px";
-    clr.onclick=()=>{if(!clr.dataset.sure){clr.dataset.sure="1";clr.textContent="Bekräfta rensning";return;}store.set("dk_history",[]);renderStats();};
-    body.appendChild(clr);
+  }
+  if(statTab!=="match"){
+    const clr=document.createElement("button");clr.className="dng";clr.textContent="Nollställ statistiken";clr.style.marginTop="14px";
+    const note=document.createElement("p");note.className="help";note.textContent="Raderar alla sparade matcher och spelartotaler på den här enheten. Pågående spel påverkas inte.";
+    clr.onclick=()=>{if(!clr.dataset.sure){clr.dataset.sure="1";clr.textContent="Ja, radera all statistik";setTimeout(()=>{delete clr.dataset.sure;clr.textContent="Nollställ statistiken";},4000);return;}
+      store.set("dk_history",[]);renderStats();};
+    body.append(clr,note);
   }
 }
 function openStats(tab){if(tab)statTab=tab;$("statsPanel").hidden=false;renderStats();}
@@ -2529,6 +2535,7 @@ const admin={
 };
 (function(){let n=0,t=0;$("appVer").addEventListener("click",()=>{const now=Date.now();n=now-t<1500?n+1:1;t=now;if(n>=7){n=0;admin.toggle();}});})();
 function fillVoiceSelect(){
+  $("lnkVisits").hidden=!admin.on;
   const sel=$("selVoice"),cur=caller.lang==="pro"?"pro:"+audio.voice:caller.lang;
   sel.querySelectorAll("option[data-voice],option[value=admin]").forEach(o=>o.remove());
   const first=sel.firstChild;
